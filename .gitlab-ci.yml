@@ -19,7 +19,7 @@ deploy_browser_preview:
   stage: deploy
   script:
   - cd browser
-  - now --token $NOW_DEPLOY_TOKEN && now alias {$CI_ENVIRONMENT_SLUG}.browser.town --token $NOW_DEPLOY_TOKEN
+  - now --token $NOW_DEPLOY_TOKEN && now alias ${CI_ENVIRONMENT_SLUG}.browser.town --token $NOW_DEPLOY_TOKEN
   environment:
     name: review/$CI_COMMIT_REF_NAME
     url: https://$CI_ENVIRONMENT_SLUG.browser.town
