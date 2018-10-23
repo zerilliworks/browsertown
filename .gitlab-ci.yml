@@ -1,0 +1,36 @@
+image: node:latest
+
+cache:
+  paths:
+  - browser/node_modules/
+
+before_script:
+- npm install -g now
+
+browser_test:
+  stage: test
+  script:
+  - cd browser
+  - npm install
+  - npm test
+
+deploy_browser_preview:
+  stage: deploy
+  script:
+  - cd browser
+  - now --token $NOW_DEPLOY_TOKEN && now alias {$CI_ENVIRONMENT_SLUG}.browser.town --token $NOW_DEPLOY_TOKEN
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://$CI_ENVIRONMENT_SLUG.browser.town
+
+deploy_browser_alias:
+  stage: deploy
+  when: manual
+  only:
+  - master
+  script:
+  - cd browser
+  - now --token $NOW_DEPLOY_TOKEN && now alias --token $NOW_DEPLOY_TOKEN
+  environment:
+    name: public
+    url: https://browser.town
