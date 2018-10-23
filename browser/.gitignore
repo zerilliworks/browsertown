@@ -1,4 +1,3 @@
 # App artifacts
 /node_modules
-
-/.idea/
+/.next

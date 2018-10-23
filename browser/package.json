@@ -2,23 +2,24 @@
   "name": "browsertown",
   "version": "1.0.0",
   "description": "The local watering hole for mouse cursors",
-  "main": "webapp/app.ts",
+  "main": "app.ts",
   "directories": {
-    "test": "webapp/__test__"
+    "test": "__test__"
   },
   "scripts": {
     "test": "ava",
-    "pack": "webpack --mode=production"
+    "dev": "next",
+    "build": "next build",
+    "start": "next start"
   },
   "keywords": [],
   "author": "",
   "license": "UNLICENSED",
-  "dependencies": {
-    "phoenix": "file:deps/phoenix",
-    "phoenix_html": "file:deps/phoenix_html"
-  },
   "devDependencies": {
+    "@types/next": "^7.0.3",
     "@types/phoenix": "0.0.4",
+    "@types/react": "^16.4.18",
+    "@types/react-dom": "^16.0.9",
     "ava": "1.0.0-rc.1",
     "awesome-typescript-loader": "^5.2.1",
     "clean-webpack-plugin": "^0.1.19",
@@ -36,5 +37,12 @@
     "uglifyjs-webpack-plugin": "^2.0.1",
     "webpack": "^4.22.0",
     "webpack-cli": "^3.1.2"
+  },
+  "dependencies": {
+    "@zeit/next-typescript": "^1.1.1",
+    "next": "^7.0.2",
+    "react": "^16.5.2",
+    "react-dom": "^16.5.2",
+    "@zeit/next-css": "^1.0.1"
   }
 }

@@ -7,10 +7,6 @@ const CopyWebpackPlugin = require('copy-webpack-plugin')
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
 var tailwindcss = require('tailwindcss')
 
-// Since Webpack will be run directly within Phoenix, we'll use the `MIX_ENV`
-// variable instead of `NODE_ENV`.
-const env = process.env.MIX_ENV === 'prod' ? 'production' : 'development'
-
 function recursiveIssuer(m) {
   if (m.issuer) {
     return recursiveIssuer(m.issuer);
