@@ -3,6 +3,7 @@ image: node:latest
 cache:
   paths:
   - browser/node_modules/
+  - /usr/local/lib/node_modules/
 
 before_script:
 - npm install -g now

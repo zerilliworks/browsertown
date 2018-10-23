@@ -10,11 +10,11 @@ export default function () {
 
   return {
     files: [
-      "webapp/__test__/**/*.{ts,tsx}"
+      "__test__/**/*.{ts,tsx}"
     ],
     sources: [
-      "webapp/**/*.{ts,tsx}",
-      "!webapp/__test__/**/*"
+      "**/*.{ts,tsx}",
+      "!__test__/**/*"
     ],
     compileEnhancements: false,
     extensions: ['ts', 'tsx'],
