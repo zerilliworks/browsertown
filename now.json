@@ -1,0 +1,7 @@
+{
+  "alias": "browser.town",
+  "dotenv": "config/prod.env",
+  "features": {
+    "cloud": "v2"
+  }
+}

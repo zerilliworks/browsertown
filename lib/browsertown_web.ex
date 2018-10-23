@@ -37,7 +37,7 @@ defmodule BrowsertownWeb do
       # Use all HTML functionality (forms, tags, etc)
       use Phoenix.HTML
 
-      import BrowsertownWeb.Router.Helpers
+      alias BrowsertownWeb.Router.Helpers, as: Routes
       import BrowsertownWeb.ErrorHelpers
       import BrowsertownWeb.Gettext
     end

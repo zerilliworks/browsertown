@@ -9,7 +9,7 @@ defmodule Browsertown.Application do
     # Define workers and child supervisors to be supervised
     children = [
       # Start the Ecto repository
-      supervisor(Browsertown.Repo, []),
+#      supervisor(Browsertown.Repo, []),
       # Start the endpoint when the application starts
       supervisor(BrowsertownWeb.Endpoint, []),
       # Start your own worker by calling: Browsertown.Worker.start_link(arg1, arg2, arg3)

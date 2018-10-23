@@ -1,7 +1,8 @@
 defmodule BrowsertownWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :browsertown
 
-  socket "/socket", BrowsertownWeb.UserSocket
+  socket "/socket", BrowsertownWeb.UserSocket,
+    websocket: true
 
   # Serve at "/" the static files from "priv/static" directory.
   #
