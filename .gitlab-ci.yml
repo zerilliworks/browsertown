@@ -15,17 +15,17 @@ browser_test:
   - npm install
   - npm test
 
-deploy_browser_preview:
+browser_preview:
   stage: deploy
   script:
   - cd browser
   - now --token $NOW_DEPLOY_TOKEN && now alias ${CI_ENVIRONMENT_SLUG}.browser.town --token $NOW_DEPLOY_TOKEN
   environment:
-    name: review/$CI_COMMIT_REF_NAME
+    name: preview/$CI_COMMIT_REF_NAME
     url: https://$CI_ENVIRONMENT_SLUG.browser.town
-    on_stop: cleanup_browser_review
+    on_stop: cleanup_browser_preview
 
-deploy_browser_alias:
+browser_production:
   stage: deploy
   when: manual
   only:
@@ -37,16 +37,15 @@ deploy_browser_alias:
     name: public
     url: https://browser.town
 
-cleanup_browser_review:
+cleanup_browser_preview:
   stage: deploy
   variables:
     GIT_STRATEGY: none
     ALIAS_URL: $CI_ENVIRONMENT_SLUG.browser.town
-    DEPLOYMENT_URL: $(now --token $NOW_DEPLOY_TOKEN alias ls | awk "/${CI_ENVIRONMENT_SLUG}.browser.town/ {print \$1}")
   script:
-  - now --token $NOW_DEPLOY_TOKEN alias rm $ALIAS_URL
-  - now --token $NOW_DEPLOY_TOKEN rm --safe --yes $DEPLOYMENT_URL
+  - now --token $NOW_DEPLOY_TOKEN alias rm --yes $ALIAS_URL
+  - now --token $NOW_DEPLOY_TOKEN rm --safe --yes $(now --token $NOW_DEPLOY_TOKEN alias ls | awk "/${CI_ENVIRONMENT_SLUG}.browser.town/ {print \$1}")
   when: manual
   environment:
-    name: review/$CI_COMMIT_REF_NAME
+    name: preview/$CI_COMMIT_REF_NAME
     action: stop
