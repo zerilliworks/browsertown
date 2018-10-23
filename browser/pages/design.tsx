@@ -36,7 +36,11 @@ export default class Design extends React.Component<Props, State> {
 
   render() {
     return <div className={"w-full h-full pin cursor-browsertown-move"}
-                style={{touchAction: 'none'}}
+                style={{
+                  touchAction: 'none',
+                  background: `url(/static/images/reticle-grid.svg)`,
+                  backgroundPosition: `${this.state.canvas.offset[0] % 64}px ${this.state.canvas.offset[1] % 64}px`
+                }}
                 onMouseDown={this.beginPan}
                 onMouseUp={this.endPan}
                 onMouseLeave={this.endPan}
