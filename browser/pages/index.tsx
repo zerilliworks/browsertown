@@ -1,5 +1,4 @@
-
-import Link from 'next/link'
+import '../css/app.css'
 
 const Index = () => (
   <div className={"container h-screen max-w-sm mx-auto flex flex-col items-center justify-center text-center"}>
