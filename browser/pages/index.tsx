@@ -1,4 +1,3 @@
-import '../css/app.css'
 
 import Link from 'next/link'
 

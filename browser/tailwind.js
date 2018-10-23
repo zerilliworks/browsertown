@@ -941,6 +941,13 @@ module.exports = {
     require('tailwindcss/plugins/container')({
       // center: true,
       // padding: '1rem',
+    }),
+    require('./css/plugins/cursor')({
+      cursorImages: {
+        'browsertown': '/static/images/cursor.svg',
+        'browsertown-comment': '/static/images/cursor-comment-add.svg',
+        'browsertown-move': '/static/images/cursor-move.svg',
+      }
     })
   ],
 

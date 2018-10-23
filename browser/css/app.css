@@ -60,3 +60,8 @@
  * @import "utilities/background-patterns";
  * @import "utilities/skew-transforms";
  */
+
+#__next {
+    @apply w-full;
+    @apply h-full;
+}
