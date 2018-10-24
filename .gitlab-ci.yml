@@ -3,11 +3,15 @@ image: node:latest
 cache:
   paths:
   - browser/node_modules/
+  - server/node_modules/
   - /usr/local/lib/node_modules/
 
 before_script:
 - npm install --unsafe-perm -g now
 
+#
+# Scripts for the Browser application
+#
 browser_test:
   stage: test
   script:
@@ -43,8 +47,58 @@ cleanup_browser_preview:
     GIT_STRATEGY: none
     ALIAS_URL: $CI_ENVIRONMENT_SLUG.browser.town
   script:
+  - $(now --token $NOW_DEPLOY_TOKEN alias ls | awk "/${CI_ENVIRONMENT_SLUG}.browser.town/ {print \$1}") > .deployid
   - now --token $NOW_DEPLOY_TOKEN alias rm --yes $ALIAS_URL
-  - now --token $NOW_DEPLOY_TOKEN rm --safe --yes $(now --token $NOW_DEPLOY_TOKEN alias ls | awk "/${CI_ENVIRONMENT_SLUG}.browser.town/ {print \$1}")
+  - now --token $NOW_DEPLOY_TOKEN rm --safe --yes $(cat .deployid)
+  when: manual
+  environment:
+    name: preview/$CI_COMMIT_REF_NAME
+    action: stop
+
+
+
+
+#
+# Scripts for the Server application
+#
+server_test:
+  stage: test
+  script:
+  - cd server
+  - npm install
+  - npm test
+
+server_preview:
+  stage: deploy
+  script:
+  - cd server
+  - now --token $NOW_DEPLOY_TOKEN && now alias ${CI_ENVIRONMENT_SLUG}.government.browser.town --token $NOW_DEPLOY_TOKEN
+  environment:
+    name: preview/$CI_COMMIT_REF_NAME
+    url: https://$CI_ENVIRONMENT_SLUG.government.browser.town
+    on_stop: cleanup_browser_preview
+
+server_production:
+  stage: deploy
+  when: manual
+  only:
+  - master
+  script:
+  - cd server
+  - now --token $NOW_DEPLOY_TOKEN && now alias --token $NOW_DEPLOY_TOKEN
+  environment:
+    name: public
+    url: https://government.browser.town
+
+cleanup_server_preview:
+  stage: deploy
+  variables:
+    GIT_STRATEGY: none
+    ALIAS_URL: $CI_ENVIRONMENT_SLUG.government.browser.town
+  script:
+  - $(now --token $NOW_DEPLOY_TOKEN alias ls | awk "/${CI_ENVIRONMENT_SLUG}.government.browser.town/ {print \$1}") > .deployid
+  - now --token $NOW_DEPLOY_TOKEN alias rm --yes $ALIAS_URL
+  - now --token $NOW_DEPLOY_TOKEN rm --safe --yes $(cat .deployid)
   when: manual
   environment:
     name: preview/$CI_COMMIT_REF_NAME

@@ -1,0 +1,5 @@
+{
+  "name": "browsertown-server",
+  "alias": "government.browser.town",
+  "dotenv": true
+}
