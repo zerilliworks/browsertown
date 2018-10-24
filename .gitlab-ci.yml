@@ -76,7 +76,7 @@ server_preview:
   environment:
     name: server-preview/$CI_COMMIT_REF_NAME
     url: https://$CI_ENVIRONMENT_SLUG.government.browser.town
-    on_stop: cleanup_browser_preview
+    on_stop: cleanup_server_preview
 
 server_production:
   stage: deploy
