@@ -1,6 +1,7 @@
 import {v4 as generateUuid} from 'uuid'
 import invariant from 'invariant'
 import * as SimplePeer from "simple-peer";
+import * as _ from 'lodash'
 
 let Peer: SimplePeer.SimplePeer
 if (typeof window !== 'undefined') {
@@ -93,7 +94,7 @@ export interface IPeer {
   signal(siglanData: any): Promise<any>
 
   // Convenience method for filtering data events by scope
-  onData(scope: string, listener: (...args: any[]) => void)
+  onData(scope: string, listener: (...args: any[]) => void): void
 
   constructConnection(connectionOptions: object): void;
 }
@@ -142,11 +143,11 @@ export class RemotePeer implements IPeer {
     return this.connection.once(event, handler)
   }
 
-  onData(scope: string, listener: (data: any) => void) {
+  onData(scope: string, listener: (data: any) => void): void {
     this.connection.on('data', (rawData: Uint8Array) => {
       let data: object = JSON.parse(rawData.toString())
       if (_.get(data, '_scope', NO_SCOPE) === scope) {
-        listener(data._payload)
+        listener((data as {_scope: string, _payload: any})._payload)
       }
     })
   }

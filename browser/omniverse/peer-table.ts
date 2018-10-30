@@ -17,7 +17,7 @@ export default class PeerTable {
   planeSelector?: string;
   private traceEnabled: boolean
 
-  constructor(localPeer: LocalPeer, options = {}) {
+  constructor(localPeer: LocalPeer, options: {trace?: boolean} = {trace: false}) {
     this.localPeer = localPeer
     this.peerTable = {}
     this.peerGraph = new graphlib.Graph({directed: false})
