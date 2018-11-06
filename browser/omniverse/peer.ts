@@ -2,6 +2,7 @@ import {v4 as generateUuid} from 'uuid'
 import invariant from 'invariant'
 import * as SimplePeer from "simple-peer";
 import * as _ from 'lodash'
+import {EventEmitter2} from 'eventemitter2'
 
 let Peer: SimplePeer.SimplePeer
 if (typeof window !== 'undefined') {
@@ -101,12 +102,15 @@ export interface IPeer {
 
 export class RemotePeer implements IPeer {
   private connection?: any;
+  private dataEvents: EventEmitter2;
   direct: boolean;
   local: boolean;
   initiator: boolean;
   ready: boolean;
   status: "connected" | "disconnected" | "error" | "connecting";
   uid: PeerUUID;
+
+  get shortUid() { return this.uid.split('-')[0] }
 
   constructor(uid: string, options: { direct: boolean }) {
     invariant(uid, "You must provide a UID when setting up remote peers")
@@ -117,6 +121,8 @@ export class RemotePeer implements IPeer {
     this.direct = options.direct
     this.ready = false
     this.initiator = false
+
+    this.dataEvents = new EventEmitter2({wildcard: true})
   }
 
   async sendCall(method: string, payload: any): Promise<PeerRPCResponse> {
@@ -130,8 +136,15 @@ export class RemotePeer implements IPeer {
   sendCast(method: string, payload: any): void {
   }
 
-  sendData(scope: string = "", payload: any = {}): void {
-    this.connection.send(JSON.stringify({_scope: scope, _payload: payload}))
+  sendData(scope: string = "", payload: any = {}): boolean {
+    try {
+      this.connection.send(JSON.stringify({_scope: scope, _payload: payload}))
+      return true
+    }
+    catch (e) {
+      console.error("Failed to send to peer", this, e)
+      return false
+    }
   }
 
   on(event: string, handler: (...args: any[]) => void) {
@@ -142,13 +155,8 @@ export class RemotePeer implements IPeer {
     return this.connection.once(event, handler)
   }
 
-  onData(scope: string, listener: (data: any) => void): void {
-    this.connection.on('data', (rawData: Uint8Array) => {
-      let data: object = JSON.parse(rawData.toString())
-      if (_.get(data, '_scope', NO_SCOPE) === scope) {
-        listener((data as {_scope: string, _payload: any})._payload)
-      }
-    })
+  onData(scope: string, listener: (data: any, scope?: any) => void): void {
+    this.dataEvents.on(scope, listener)
   }
 
   async events(events: string[]) {
@@ -173,7 +181,14 @@ export class RemotePeer implements IPeer {
     this.direct = true
 
     // Bind connection listeners
-
+    this.connection.on('data', (rawData: Uint8Array) => {
+      let data: object = JSON.parse(rawData.toString())
+      let scope
+      if (scope = _.get(data, '_scope', NO_SCOPE) !== NO_SCOPE) {
+        let {_scope, _payload} = (data as {_scope: string, _payload: any})
+        this.dataEvents.emit(_scope, _payload, _scope)
+      }
+    })
   }
 
   hasConnection(): boolean {

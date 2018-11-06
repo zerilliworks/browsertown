@@ -1,11 +1,12 @@
-import {Component} from "react";
-import * as React from "react";
-import * as moment from "moment";
+import {Component} from 'react'
+import * as React from 'react'
+import * as moment from 'moment'
 import ambientConsole from '../ambient-console'
 import eyes from 'eyes'
+import {trim} from 'lodash'
 
 export default class AmbientConsole extends Component<{maxLength: number}, {messages: Array<{ts: any, type: string, message: any}>}> {
-  private inspector: any;
+  private inspector: any
   constructor(props) {
     super(props)
 
@@ -20,7 +21,7 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
   }
 
   private formatVariadicLog(lines: any[]): string {
-    return lines.map(l => this.inspector(l)).join(" ")
+    return trim(lines.map(l => this.inspector(l)).join(' '), `'"`)
   }
 
   componentDidMount() {
@@ -74,7 +75,7 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
   render() {
     return (
       <div className="fixed p-2 pin-b pin-l w-auto bg-transparent text-grey-light hover:text-grey-dark text-sm font-mono" style={{pointerEvents: 'none'}}>
-        {this.state.messages.map(m => <p key={m.ts}>[{moment(m.ts).format()}]: {m.message}</p>)}
+        {this.state.messages.map(m => <p key={m.ts + m.message}>[{moment(m.ts).format()}]: {m.message}</p>)}
       </div>
     )
   }

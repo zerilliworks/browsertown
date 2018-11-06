@@ -16,6 +16,16 @@ class PlaneScope {
   peers(): RemotePeer[] {
     return this.omniverse.peerTracker.getPeers({plane: this.planeId})
   }
+
+  neighbors(): Array<{plane: string, peer: string}> {
+    return this.omniverse.peerTracker.getNeighbors({plane: this.planeId})
+  }
+
+  broadcast(scope: string, payload: any) {
+    this.peers().forEach(peer => {
+      peer.sendData(scope, payload)
+    })
+  }
 }
 
 export default class Omniverse {
@@ -29,8 +39,10 @@ export default class Omniverse {
 
   constructor({trackerUrl}: {trackerUrl: string}) {
     this.trackerUrl = trackerUrl
-    this.events = new EventEmitter2()
+    this.events = new EventEmitter2({wildcard: true})
   }
+
+  get url() { return this.trackerUrl }
 
   on(event: string | string[], listener: (...args: any[]) => void) {
     return this.events.on(event, listener)
@@ -102,7 +114,14 @@ export default class Omniverse {
     // Proxy connection events
     this.tracker.on('peer_connected', peer => {
       this.events.emit('peer_connected', peer)
+
+      // Bind the global data event to this peer
+      peer.onData('*', (data, scope) => {
+        this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
+      })
     })
+    this.tracker.on('peer_join', peer => this.events.emit('peer_join', peer))
+    this.tracker.on('peer_leave', peer => this.events.emit('peer_leave', peer))
 
     // Reach out to tracker server
     await this.tracker.connect()
