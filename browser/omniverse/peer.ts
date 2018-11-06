@@ -54,9 +54,6 @@ export interface IPeer {
   // Unique ID for this peer
   uid: PeerUUID
 
-  // A WebRTC connection, as handled by Simple Peer (only if a direct peer)
-  connection?: any
-
   // Is the peer a direct peer?
   direct: boolean
 
@@ -97,11 +94,13 @@ export interface IPeer {
   onData(scope: string, listener: (...args: any[]) => void): void
 
   constructConnection(connectionOptions: object): void;
+
+  hasConnection(): boolean;
 }
 
 
 export class RemotePeer implements IPeer {
-  connection?: any;
+  private connection?: any;
   direct: boolean;
   local: boolean;
   initiator: boolean;
@@ -172,11 +171,22 @@ export class RemotePeer implements IPeer {
   constructConnection(connectionOptions: object = {}): void {
     this.connection = new Peer(connectionOptions)
     this.direct = true
+
+    // Bind connection listeners
+
+  }
+
+  hasConnection(): boolean {
+    return !!this.connection;
   }
 }
 
+
+
+
+
 export class LocalPeer implements IPeer {
-  connection?: any;
+  private connection?: any;
   direct: boolean;
   initiator: boolean;
   local: boolean;
@@ -232,6 +242,10 @@ export class LocalPeer implements IPeer {
 
   constructConnection(connectionOptions: object): void {
     throw new Error("constructConnection() is not valid on LocalPeer instances")
+  }
+
+  hasConnection(): boolean {
+    return !!this.connection;
   }
 
 }

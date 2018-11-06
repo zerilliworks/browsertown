@@ -109,7 +109,7 @@ export default class PeerTable {
       this.insert(peer)
     }
 
-    if (!peer.connection) {
+    if (!peer.hasConnection()) {
       peer.constructConnection(connectionOptions)
     }
 

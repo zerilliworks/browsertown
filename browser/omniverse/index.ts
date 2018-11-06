@@ -25,8 +25,10 @@ export default class Omniverse {
   private identities: any[];
   private tracker: PeerTracker;
   private events: EventEmitter2;
+  private trackerUrl: string;
 
-  constructor() {
+  constructor({trackerUrl}: {trackerUrl: string}) {
+    this.trackerUrl = trackerUrl
     this.events = new EventEmitter2()
   }
 
@@ -92,7 +94,7 @@ export default class Omniverse {
     // Start up the connection to the peer tracker
     console.info("Connecting to peer tracker")
     this.tracker = new PeerTracker({
-      peerServer: 'zerilliworks.local:8765',
+      peerServer: this.trackerUrl,
       localPeerInstance: this.myPeerInstance,
       debug: true
     })

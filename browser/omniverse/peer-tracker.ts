@@ -166,7 +166,7 @@ export default class PeerTracker {
           // -> Load the connection for this peer
           const remotePeer = this.peerTable.get(from_peer)
           invariant(
-            remotePeer && remotePeer.connection,
+            remotePeer && remotePeer.hasConnection(),
             "No peer instance was allocated for answer, we probably did not offer anything to them"
           )
 
@@ -176,6 +176,9 @@ export default class PeerTracker {
           // -> Finalize the connection once it's open
           remotePeer.once('connect', () => {
             this.openConnectionOffers[from_peer].status = "open"
+
+            // Bind
+
             this.events.emit('peer_connected', remotePeer)
             console.info("Connected to peer", remotePeer.uid)
           })
