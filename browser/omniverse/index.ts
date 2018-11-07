@@ -13,7 +13,7 @@ class PlaneScope {
     this.omniverse = omniverse
   }
 
-  peers(): RemotePeer[] {
+  peers(): IPeer[] {
     return this.omniverse.peerTracker.getPeers({plane: this.planeId})
   }
 
@@ -139,7 +139,7 @@ export default class Omniverse {
 
   get peerTracker() { return this.tracker }
 
-  async connectToPeer(peer: RemotePeer) {
+  async connectToPeer(peer: IPeer) {
     try {
       await this.peerTracker.initiatePeerConnection(peer.uid)
       return peer

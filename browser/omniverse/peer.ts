@@ -102,7 +102,8 @@ export interface IPeer {
 
 export class RemotePeer implements IPeer {
   private connection?: any;
-  private dataEvents: EventEmitter2;
+  private readonly dataEvents: EventEmitter2;
+
   direct: boolean;
   local: boolean;
   initiator: boolean;

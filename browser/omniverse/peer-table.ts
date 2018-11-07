@@ -1,7 +1,7 @@
 import {IPeer, LocalPeer, PeerUUID, RemotePeer} from "./peer";
 import {values, filter, map} from 'lodash'
 // @ts-ignore
-import graphlib from '@dagrejs/graphlib'
+import * as graphlib from '@dagrejs/graphlib'
 import invariant from 'invariant'
 
 export interface IPeerTableRecord {
@@ -101,7 +101,7 @@ export default class PeerTable {
    * @param peerUid
    * @param connectionOptions
    */
-  assertPeerConnection(peerUid: PeerUUID, connectionOptions: object = {}): RemotePeer {
+  assertPeerConnection(peerUid: PeerUUID, connectionOptions: object = {}): IPeer {
     let peer = this.get(peerUid)
 
     if (!peer) {

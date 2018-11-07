@@ -4,7 +4,7 @@ export default props => (
     <input type="text" placeholder="Find shit"
            className="flex flex-1 px-4 py-2 bg-transparent border-r border-grey-light"/>
     <div className="flex flex-shrink flex-row items-center px-2 py-2 cursor-pointer hover:bg-grey-light rounded-r-full">
-      <h3 className="leading-tight mr-2">Armand is logged in</h3>
+      <h3 className="leading-tight mr-2">not logged in</h3>
       <img className="rounded-full w-8 h-8" src="https://placekitten.com/32/32" alt="Avatar"/>
     </div>
   </div>

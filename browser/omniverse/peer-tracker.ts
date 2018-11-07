@@ -1,10 +1,10 @@
-import * as io from 'socket.io-client'
+import io from 'socket.io-client'
 // import { URL } from 'url'
 import * as url from 'url'
 import PeerTable from './peer-table'
 import {LocalPeer, PeerUUID, RemotePeer} from './peer'
 import invariant from 'invariant'
-import * as _ from 'lodash'
+import _ from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
 import {map, flatMap} from 'lodash'
 
@@ -38,7 +38,7 @@ export default class PeerTracker {
       ' we need a reference to hold our own identity and send requests to the peer server.')
 
     this.localPeerInstance = localPeerInstance
-    this.peerServerUrl = new URL(peerServer)
+    this.peerServerUrl = new url.URL(peerServer)
     this.peerServerUrl.search = `uid=${localPeerInstance.uid}`
     this.currentPlane = '00000000-0000-0000-0000-000000000000'
     this.planeMetadata = {}

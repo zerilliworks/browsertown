@@ -99,7 +99,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
         ac.log('Portal to omniverse open at ' + this.omniverse.url)
 
         // Bind join events
-        this.omniverse.on('peer_join',  (peer: RemotePeer) => {
+        this.omniverse.on('peer_join',  (peer: IPeer) => {
           ac.log(`Remote peer joined: ${peer.uid}`)
           this.omniverse.connectToPeer(peer)
             .catch(err => {
@@ -119,7 +119,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
         })
 
         // Bind incoming cursor updates
-        this.omniverse.on('peers.*.message.*', (data: any, scope: string, fromPeer: RemotePeer) => {
+        this.omniverse.on('peers.*.message.*', (data: any, scope: string, fromPeer: IPeer) => {
           this.setState({
             ghostCursors: {
               ...this.state.ghostCursors,
