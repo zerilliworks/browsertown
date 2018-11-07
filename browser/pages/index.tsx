@@ -21,7 +21,7 @@ const DimensionBar = () => (
     <div
       className="flex flex-row items-stretch rounded-full my-4 shadow border">
       <button onClick={routeToNewDimension} className="flex-initial pl-3 pr-4 py-2 cursor-pointer bg-teal border border-teal-dark hover:bg-teal-light text-white font-bold rounded-full">
-        New Dimesnion
+        New Dimension
       </button>
     </div>
   </div>

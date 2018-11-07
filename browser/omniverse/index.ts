@@ -30,7 +30,8 @@ class PlaneScope {
   }
 }
 
-export default class Omniverse {
+class Omniverse {
+  // @ts-ignore
   metabase: PouchDB.Database;
   private myPeerId?: string;
   private myPeerInstance?: LocalPeer
@@ -42,7 +43,6 @@ export default class Omniverse {
   constructor({trackerUrl}: {trackerUrl: string}) {
     this.trackerUrl = trackerUrl
     this.events = new EventEmitter2({wildcard: true})
-    this.metabase = new PouchDB('_metabase', {adapter: 'idb'})
   }
 
   get url() { return this.trackerUrl }
@@ -75,6 +75,7 @@ export default class Omniverse {
     console.info("Omniverse booting up")
 
     // Wake up in the world afresh, remembering who we were
+    this.metabase = new PouchDB('_metabase', {adapter: 'idb'})
 
     // Find initialization data
     try {
