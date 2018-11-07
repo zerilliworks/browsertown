@@ -30,7 +30,7 @@ class PlaneScope {
   }
 }
 
-class Omniverse {
+export default class Omniverse {
   // @ts-ignore
   metabase: PouchDB.Database;
   private myPeerId?: string;
