@@ -1,4 +1,4 @@
-export default props => (
+export default () => (
   <div
     className="flex flex-row items-stretch rounded-full my-4 mx-auto w-3/4 shadow bg-grey-lightest border border-grey-lighter">
     <input type="text" placeholder="Find shit"

@@ -1,10 +1,9 @@
-import {Component, CSSProperties, WheelEvent} from 'react'
+import {Component, CSSProperties, WheelEvent, MouseEvent} from 'react'
 import * as React from 'react'
 import {map, throttle} from 'lodash'
-import * as localForage from 'localforage'
 import ac from '../ambient-console'
 import Omniverse from '../omniverse'
-import {RemotePeer} from '../omniverse/peer'
+import {IPeer} from '../omniverse/peer'
 
 interface ITownPlaneState {
   canvas: {
@@ -13,21 +12,20 @@ interface ITownPlaneState {
   },
   panning: boolean,
   ghostCursors: Record<string, {
-    clientX: number,
-    clientY: number
+    x: number,
+    y: number
   }>
 }
 
 
 interface ITownPlaneProps {
-  renderControls?: React.SFC
+  renderControls: React.SFC
 }
 
 export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
-  private userId: string
   private omniverse: Omniverse
 
-  constructor(props) {
+  constructor(props: ITownPlaneProps) {
     super(props)
 
     this.omniverse = new Omniverse({trackerUrl: 'https://server-preview-ma-mkw5kd.government.browser.town'})
@@ -145,21 +143,23 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
     }
   }
 
-  private beginPan(event) {
+  private beginPan(event: MouseEvent) {
     this.setState({panning: true})
   }
 
-  private endPan(event) {
+  private endPan(event: MouseEvent) {
     this.setState({panning: false})
   }
 
-  private panCanvas(event: React.MouseEvent<HTMLDivElement>) {
+  private panCanvas(event: MouseEvent<HTMLDivElement>) {
     if (this.state.panning === false) {
       return
     }
 
     let {scale, offset: [x, y]} = this.state.canvas
+    // @ts-ignore
     let dx = event.movementX
+    // @ts-ignore
     let dy = event.movementY
 
     this.setState({
@@ -187,7 +187,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
     })
   }
 
-  private updateCursor(clientX, clientY) {
+  private updateCursor(clientX: number, clientY: number) {
     this.omniverse.plane('1').broadcast('cursor_update', {x: clientX, y: clientY})
   }
 }

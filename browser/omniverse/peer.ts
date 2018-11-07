@@ -70,6 +70,9 @@ export interface IPeer {
   // Did we initiate this peer connection?
   initiator: boolean
 
+  // A shorter UUID to use in some cases
+  shortUid: string
+
   // Send a JSON payload to this peer
   sendData(scope: string, payload: any): void
 
@@ -89,12 +92,13 @@ export interface IPeer {
   events(events: string[]): Promise<any>
 
   // Convenience method for awaiting signal data
-  signal(siglanData: any): Promise<any>
+  signal(siglanData?: any): Promise<any>
 
   // Convenience method for filtering data events by scope
   onData(scope: string, listener: (...args: any[]) => void): void
 
   constructConnection(connectionOptions: object): void;
+  destroyConnection(): void;
 
   hasConnection(): boolean;
 }
@@ -192,6 +196,10 @@ export class RemotePeer implements IPeer {
     })
   }
 
+  destroyConnection(): void {
+    if (this.connection) this.connection.destroy()
+  }
+
   hasConnection(): boolean {
     return !!this.connection;
   }
@@ -209,6 +217,8 @@ export class LocalPeer implements IPeer {
   ready: boolean;
   status: "connected" | "disconnected" | "error" | "connecting";
   uid: PeerUUID;
+
+  get shortUid() { return this.uid.split('-')[0] }
 
   constructor(uid?: string) {
     this.uid = uid || generateUuid()
@@ -248,7 +258,7 @@ export class LocalPeer implements IPeer {
 
   }
 
-  async signal(signalData: any) {
+  async signal(signalData?: any) {
     return new Promise((resolve, reject) => {
       this.connection.once('error', reject)
       this.connection.once('signal', resolve)
@@ -258,6 +268,10 @@ export class LocalPeer implements IPeer {
 
   constructConnection(connectionOptions: object): void {
     throw new Error("constructConnection() is not valid on LocalPeer instances")
+  }
+
+  destroyConnection(): void {
+    throw new Error("destroyConnection() is not valid on LocalPeer instances")
   }
 
   hasConnection(): boolean {

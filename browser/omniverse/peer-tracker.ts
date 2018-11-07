@@ -2,7 +2,7 @@ import io from 'socket.io-client'
 // import { URL } from 'url'
 import * as url from 'url'
 import PeerTable from './peer-table'
-import {LocalPeer, PeerUUID, RemotePeer} from './peer'
+import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
 import invariant from 'invariant'
 import _ from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
@@ -15,9 +15,15 @@ if (typeof window !== 'undefined') {
 
 class SocketNotConnectedError extends Error {}
 
+type PlaneDataPayload = {
+  peers: string[]
+  id: string,
+  origin: [number, number]
+}
+
 export default class PeerTracker {
-  private peerServerUrl: url.URL
-  private socket: SocketIOClient.Socket
+  private peerServerUrl: URL
+  private socket?: SocketIOClient.Socket
   private currentPlane: string | null
   private planeMetadata: Record<string, {
     id: string,
@@ -38,7 +44,7 @@ export default class PeerTracker {
       ' we need a reference to hold our own identity and send requests to the peer server.')
 
     this.localPeerInstance = localPeerInstance
-    this.peerServerUrl = new url.URL(peerServer)
+    this.peerServerUrl = new URL(peerServer)
     this.peerServerUrl.search = `uid=${localPeerInstance.uid}`
     this.currentPlane = '00000000-0000-0000-0000-000000000000'
     this.planeMetadata = {}
@@ -59,7 +65,7 @@ export default class PeerTracker {
     //   ==>  Bind update listeners  <==
 
         // -->  Set up initial peer table from first plane update
-        this.socket.once('plane_update', data => {
+        this.socket.once('plane_update', (data: PlaneDataPayload) => {
           // Filter out our own peer
           this.planeMetadata[data.id] = {
             ...data,
@@ -72,7 +78,7 @@ export default class PeerTracker {
         })
 
         // -->  Sync up our plane metadata when an update gets sent
-        this.socket.on('plane_update', data => {
+        this.socket.on('plane_update', (data: PlaneDataPayload) => {
           console.debug('incoming plane_update', data)
 
           // Filter our own peer ID out of the metadata
@@ -86,7 +92,7 @@ export default class PeerTracker {
         })
 
         // -->  Record new peers in the PeerTable when they announce themselves
-        this.socket.on('peer_join', peerData => {
+        this.socket.on('peer_join', (peerData: {peer: PeerUUID, plane: string}) => {
           console.debug('peer_join', peerData)
 
           // Screen out messages that tell us our own peer ID joined,
@@ -103,7 +109,7 @@ export default class PeerTracker {
         })
 
         // -->  Remove peers from the PeerTable when they leave
-        this.socket.on('peer_leave', peerData => {
+        this.socket.on('peer_leave', (peerData: {peer: PeerUUID, plane: string}) => {
           console.debug('peer_leave', peerData)
 
           // Screen out messages that tell us our own peer ID left,
@@ -119,7 +125,7 @@ export default class PeerTracker {
         })
 
         // -->  Listen for incoming connection offers
-        this.socket.on('connection_offer', ({from_peer, to_peer, offer}) => {
+        this.socket.on('connection_offer', ({from_peer, to_peer, offer}: {from_peer: PeerUUID, to_peer: PeerUUID, offer: any}) => {
           invariant(to_peer === this.localPeerInstance.uid,
             `Incoming connection offer was addressed to a peer that isn't us!`+
             `\n${from_peer} offered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
@@ -149,7 +155,7 @@ export default class PeerTracker {
 
 
         // Listen for answers to your connection offer
-        this.socket.on('connection_answer', ({from_peer, to_peer, answer}) => {
+        this.socket.on('connection_answer', ({from_peer, to_peer, answer}: {from_peer: PeerUUID, to_peer: PeerUUID, answer: any}) => {
           invariant(to_peer === this.localPeerInstance.uid,
             `Incoming connection answer was addressed to a peer that isn't us!`
             + `\n${from_peer} answered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
@@ -170,6 +176,7 @@ export default class PeerTracker {
             remotePeer && remotePeer.hasConnection(),
             'No peer instance was allocated for answer, we probably did not offer anything to them'
           )
+          if (!remotePeer) { throw 'no peer' }
 
           // -> Signal the answer for your connection
           remotePeer.signal(answer).then(() => {})
@@ -187,6 +194,7 @@ export default class PeerTracker {
 
     // Return a Promise for the connection action
     return new Promise((resolve, reject) => {
+      if (!this.socket) { return reject(new Error ("Socket wasn't intialized correctly")) }
       this.socket.once('connect', resolve)
       this.socket.once('error', reject)
     })
@@ -194,6 +202,8 @@ export default class PeerTracker {
   } /* end connect() */
 
   disconnect() {
+    if (!this.socket) { return }
+
     // -->  Close socket connection and clean up listeners
     this.socket.removeAllListeners()
     this.socket.close()
@@ -204,9 +214,7 @@ export default class PeerTracker {
 
     // --> Close all peer connections
     for (let peer of this.peerTable.all()) {
-      if(peer.connection) {
-        peer.connection.destroy()
-      }
+      peer.destroyConnection()
     }
   }
 
@@ -214,6 +222,8 @@ export default class PeerTracker {
    * Tell the peer tracker server that we are looking for peers in a plane
    */
   enterPlane(plane: string) {
+    if (!this.socket) { return }
+
     this.assertConnected('Socket must be open before announcing a plane')
 
     this.currentPlane = plane
@@ -222,6 +232,8 @@ export default class PeerTracker {
   }
 
   leavePlane(plane: string) {
+    if (!this.socket) { return }
+
     this.assertConnected('Socket must be open before leaving a plane')
 
     this.currentPlane = null
@@ -246,7 +258,7 @@ export default class PeerTracker {
     this.openConnectionOffers[peerId] = {remoteUid: peerId, status: 'pending'}
 
     // Lookup the peer instance and construct a connection object to work with
-    const peer: RemotePeer = this.peerTable.assertPeerConnection(peerId, {initiator: true, trickle: false})
+    const peer: IPeer = this.peerTable.assertPeerConnection(peerId, {initiator: true, trickle: false})
 
     // Create an offer signal and transmit it
     const offer = await peer.signal()
@@ -267,10 +279,12 @@ export default class PeerTracker {
   }
 
   private sendConnectionOffer(remotePeerUid: PeerUUID, offerData: any) {
+    if (!this.socket) { throw 'No socket!' }
     this.socket.emit('initiate_connection', {to_peer: remotePeerUid, from_peer: this.localPeerInstance.uid, offer: offerData})
   }
 
   private sendConnectionAnswer(remotePeerUid: PeerUUID, answerData: any) {
+    if (!this.socket) { throw 'No socket!' }
     this.socket.emit('connection_answer', {to_peer: remotePeerUid, from_peer: this.localPeerInstance.uid, answer: answerData})
   }
 
@@ -291,7 +305,12 @@ export default class PeerTracker {
 
 
   getPeers(filter: {plane?: string} = {}) {
-    return this.peerTable.plane(filter.plane).all()
+    if (filter.plane) {
+      return this.peerTable.plane(filter.plane).all()
+    }
+    else {
+      return this.peerTable.all()
+    }
   }
 
   getNeighbors(filter: {plane?: string} = {}) {

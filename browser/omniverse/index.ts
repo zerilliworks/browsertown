@@ -1,4 +1,4 @@
-import {LocalPeer, RemotePeer} from "./peer";
+import {IPeer, LocalPeer, RemotePeer} from './peer'
 import PouchDB from 'pouchdb'
 import {v4 as uuid} from 'uuid'
 import PeerTracker from "./peer-tracker";
@@ -14,10 +14,12 @@ class PlaneScope {
   }
 
   peers(): IPeer[] {
+    if (!this.omniverse.peerTracker) { throw new Error('Peer tracker not initialized!') }
     return this.omniverse.peerTracker.getPeers({plane: this.planeId})
   }
 
-  neighbors(): Array<{plane: string, peer: string}> {
+  neighbors(): Array<{plane: string | undefined, peer: string}> {
+    if (!this.omniverse.peerTracker) { throw new Error('Peer tracker not initialized!') }
     return this.omniverse.peerTracker.getNeighbors({plane: this.planeId})
   }
 
@@ -30,16 +32,17 @@ class PlaneScope {
 
 export default class Omniverse {
   metabase: PouchDB.Database;
-  private myPeerId: string;
-  private myPeerInstance: LocalPeer
-  private identities: any[];
-  private tracker: PeerTracker;
+  private myPeerId?: string;
+  private myPeerInstance?: LocalPeer
+  private identities?: any[];
+  private tracker?: PeerTracker;
   private events: EventEmitter2;
-  private trackerUrl: string;
+  private readonly trackerUrl: string;
 
   constructor({trackerUrl}: {trackerUrl: string}) {
     this.trackerUrl = trackerUrl
     this.events = new EventEmitter2({wildcard: true})
+    this.metabase = new PouchDB('_metabase', {adapter: 'idb'})
   }
 
   get url() { return this.trackerUrl }
@@ -68,16 +71,14 @@ export default class Omniverse {
    * 4. Connect to the Local Cluster peers
    * 5. Share our data with the Local Cluster
    */
-  async boot() {
+  async boot(): Promise<boolean> {
     console.info("Omniverse booting up")
 
     // Wake up in the world afresh, remembering who we were
-    this.metabase = new PouchDB('_metabase', {adapter: 'idb'})
-    console.info("Metabase loaded")
 
     // Find initialization data
     try {
-      const bootstrapData = await this.metabase.get('peerData')
+      const bootstrapData: {peerId: string, identities: any[]} = await this.metabase.get('peerData') as unknown as {peerId: string, identities: any[]}
       console.info("Loaded bootstrap data", bootstrapData)
       this.myPeerId = bootstrapData.peerId
       this.identities = bootstrapData.identities
@@ -116,7 +117,7 @@ export default class Omniverse {
       this.events.emit('peer_connected', peer)
 
       // Bind the global data event to this peer
-      peer.onData('*', (data, scope) => {
+      peer.onData('*', (data: any, scope: string) => {
         this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
       })
     })
@@ -133,15 +134,16 @@ export default class Omniverse {
     return true
   }
 
-  plane(planeId) {
+  plane(planeId: string) {
     return new PlaneScope(planeId, this)
   }
 
   get peerTracker() { return this.tracker }
 
   async connectToPeer(peer: IPeer) {
+    if (!this.tracker) { throw new Error('Peer tracker not initialized!') }
     try {
-      await this.peerTracker.initiatePeerConnection(peer.uid)
+      await this.tracker.initiatePeerConnection(peer.uid)
       return peer
     } catch (e) {
       console.error(e)
@@ -150,6 +152,7 @@ export default class Omniverse {
   }
 
   deconstruct() {
+    if (!this.tracker) { throw new Error('Peer tracker not initialized!') }
     this.tracker.disconnect()
   }
 }
