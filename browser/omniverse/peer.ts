@@ -142,6 +142,10 @@ export class RemotePeer implements IPeer {
   }
 
   sendData(scope: string = "", payload: any = {}): boolean {
+    if(! this.connection || ! this.connection.writable) {
+      return false
+    }
+
     try {
       this.connection.send(JSON.stringify({_scope: scope, _payload: payload}))
       return true

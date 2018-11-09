@@ -14,12 +14,12 @@ class PlaneScope {
   }
 
   peers(): IPeer[] {
-    if (!this.omniverse.peerTracker) { throw new Error('Peer tracker not initialized!') }
+    if (!this.omniverse.peerTracker) { return [] }
     return this.omniverse.peerTracker.getPeers({plane: this.planeId})
   }
 
   neighbors(): Array<{plane: string | undefined, peer: string}> {
-    if (!this.omniverse.peerTracker) { throw new Error('Peer tracker not initialized!') }
+    if (!this.omniverse.peerTracker) { return [] }
     return this.omniverse.peerTracker.getNeighbors({plane: this.planeId})
   }
 
