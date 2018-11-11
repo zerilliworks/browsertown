@@ -1,7 +1,7 @@
 import {Socket} from "socket.io";
+import * as crypto from "crypto";
+import {Request, Response} from "express";
 
-console.log("If module not found, install express globally `npm i express -g`!");
-const port = process.env.OPENSHIFT_NODEJS_PORT || process.env.VCAP_APP_PORT || process.env.PORT || process.argv[2] || 8765;
 const express = require('express');
 const app = express();
 const http = require('http').Server(app)
@@ -35,6 +35,13 @@ let connections: Record<string, number> = {}
 const incrementConn = (pid: string) => connections[pid] = (connections[pid] | 0) + 1
 const decrementConn = (pid: string) => connections[pid] = (connections[pid] - 1)
 
+// Create hashes of plane IDs
+const hashPlaneId = (id: string) => {
+  let idHash = crypto.createHash('sha256')
+  idHash.update(id)
+  return idHash.digest().toString()
+}
+
 // GUN setup
 const Gun = require('gun');
 
@@ -51,22 +58,50 @@ function filterOwnPeerFromPlaneMetadata(selfPeer: string, planeMetadata: Plane) 
   }
 }
 
+function findOrCreatePlane(plane_id: string): Plane {
+  let planeHash = hashPlaneId(plane_id);
+  if(planes[planeHash]) {
+    return planes[planeHash]
+  }
+  else {
+    return planes[planeHash] = {
+      id: plane_id,
+      origin: [0,0],
+      peers: []
+    }
+  }
+}
+
 io.on('connection', (socket: Socket) => {
+
+  // Ping
+  socket.on('heartbeat', (memo: string, reply) => {
+    console.log('PING')
+    reply('dub')
+  })
 
   // Add the peer to our Plane datastructure
   const socketUid = socket.handshake.query.uid
   incrementConn(socketUid)
 
   console.log("Peer connected", socket.handshake.query)
-  socket.join('planes.1')
+
+  // Join a private room for communications to this peer alone
   socket.join(`peer.${socketUid}`)
 
-  planes[1].peers.push(socketUid)
-  peerTable[socketUid] = {uid: socketUid, socket}
+  // Listen for requests to join planes
+  socket.on('enter_plane', ({plane_id}) => {
+    let planeRoom = `planes.${hashPlaneId(plane_id)}`;
+    let planeObject = findOrCreatePlane(plane_id)
+    planeObject.peers.push(socketUid)
+    socket.join(planeRoom)
 
-  // Broadcast new peers
-  io.emit('plane_update', planes[1])
-  socket.broadcast.to('planes.1').emit('peer_join', {peer: socketUid, plane: "1"})
+    // Broadcast new peers
+    socket.broadcast.to(planeRoom).emit('plane_update', planeObject)
+    socket.broadcast.to(planeRoom).emit('peer_join', {peer: socketUid, plane: "1"})
+  })
+
+  peerTable[socketUid] = {uid: socketUid, socket}
 
   // Handle disconnections, update plane object to remove active peer
   socket.on('disconnect', (reason) => {
@@ -92,10 +127,17 @@ io.on('connection', (socket: Socket) => {
 })
 
 
+function startServer(port?: number) {
+  // Go
+  const server = http.listen(port)
+  Gun({	file: 'data.json', web: server });
 
-// Go
-const server = http.listen(port)
-Gun({	file: 'data.json', web: server });
+  const actualPort = server.address().port
 
-console.log('GUN Server started on port ' + port + ' with /gun');
-console.log('Peering Server started on port ' + port + ' with /peer');
+  console.log('GUN Server started on port ' + actualPort + ' with /gun');
+  console.log('Peering Server started on port ' + actualPort + ' with /peer');
+
+  return server
+}
+
+export {startServer, app, http}
