@@ -1,12 +1,12 @@
 import io from 'socket.io-client'
 // import { URL } from 'url'
-import * as url from 'url'
 import PeerTable from './peer-table'
 import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
 import invariant from 'invariant'
-import _ from 'lodash'
+import _, {omit, first} from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
 import {map, flatMap} from 'lodash'
+import {Observable, Subscription, Subject} from 'rxjs'
 
 let Peer
 if (typeof window !== 'undefined') {
@@ -21,14 +21,53 @@ type PlaneDataPayload = {
   origin: [number, number]
 }
 
+
+type PlaneMetadataRecord = Record<string, {
+  id: string,
+  peers: string[]
+}>
+
+export type PeerConnectedEvent = {
+  eventName: 'peer_connected',
+  listener: (peer: IPeer) => void
+}
+
+export type PeerUpdateEvent = {
+  eventName: 'peer_update',
+  listener: () => void
+}
+
+export type PeerJoinEvent = {
+  eventName: 'peer_join',
+  listener: (peer: IPeer) => void
+}
+
+export type PeerLeaveEvent = {
+  eventName: 'peer_leave',
+  listener: (peer: {peer: PeerUUID, plane: string}) => void
+}
+
+export type PlaneUpdateEvent = {
+  eventName: 'plane_update',
+  listener: (planeData: PlaneMetadataRecord) => void
+}
+
+export type ConnectEvent = {
+  eventName: 'connect',
+  listener: () => void
+}
+
+export type DisconnectEvent = {
+  eventName: 'disconnect',
+  listener: () => void
+}
+
+
 export default class PeerTracker {
   private peerServerUrl: URL
   private socket?: SocketIOClient.Socket
   private currentPlane: string | null
-  private planeMetadata: Record<string, {
-    id: string,
-    peers: string[]
-  }>
+  private planeMetadata: PlaneMetadataRecord
   private peerTable: PeerTable
   private localPeerInstance: LocalPeer
   private openConnectionOffers: Record<string, {
@@ -37,12 +76,14 @@ export default class PeerTracker {
   }>
   private events: EventEmitter2
 
-
   constructor({peerServer, localPeerInstance, debug = false}: {peerServer: string, localPeerInstance: LocalPeer, debug?: boolean}) {
+    // Make some assertions about our setup
     invariant(peerServer, 'You must provide a peer tracker server URL when setting up the PeerTracker')
     invariant(localPeerInstance.ready, 'You must provide an instance of LocalPeer when setting up the PeerTracker;' +
       ' we need a reference to hold our own identity and send requests to the peer server.')
 
+
+    // Bind instance variables
     this.localPeerInstance = localPeerInstance
     this.peerServerUrl = new URL(peerServer)
     this.peerServerUrl.search = `uid=${localPeerInstance.uid}`
@@ -52,6 +93,12 @@ export default class PeerTracker {
     this.openConnectionOffers = {}
     this.events = new EventEmitter2()
 
+    // Set up the proxy to Observables
+    this.events.onAny((event, ...args) => {
+
+    })
+
+    // Enable some extra debug info
     if(debug) {
       this.logEvents()
       this.peerTable.enableTrace()
@@ -61,6 +108,33 @@ export default class PeerTracker {
   async connect() {
     // Open a connection
     this.socket = io(this.peerServerUrl.toString())
+
+    this.events.emit('connect')
+
+    //   ==>  Bind connection status listeners  <==
+    ;[
+      'connect',
+      'connect_error',
+      'connect_timeout',
+      'disconnect',
+      'reconnect',
+      'reconnect_attempt',
+      'reconnect_error',
+      'reconnect_failed'
+    ].map(event => {
+      // @ts-ignore
+      this.socket.on(event, (...args) => this.events.emit(event, ...args))
+    })
+
+    this.socket.on('reconnect', () => {
+      if (this.currentPlane) {
+        // It's sort of dopey that we have to do this, but Socket.io doesn't immediately
+        // mark the socket as open on the 'reconnect' event. It does for the 'connect'
+        // event, but we don't necessarily want to fire this on first connection.
+        // @ts-ignore
+        setImmediate(() => this.enterPlane(this.currentPlane))
+      }
+    })
 
     //   ==>  Bind update listeners  <==
 
@@ -137,7 +211,7 @@ export default class PeerTracker {
 
           // -> Create or update a peer record with a connection to track this pairing.
           //    Create the connection with initiator = false because the other peer started this.
-          let remotePeer = this.peerTable.assertPeerConnection(from_peer, {initiator: false, trickle: false})
+          let remotePeer = this.peerTable.plane(this.currentPlane).assertPeerConnection(from_peer, {initiator: false, trickle: false})
 
           // -> Take the incoming request and provide an answer
           remotePeer.signal(offer).then(answerData => {
@@ -194,7 +268,7 @@ export default class PeerTracker {
 
     // Return a Promise for the connection action
     return new Promise((resolve, reject) => {
-      if (!this.socket) { return reject(new Error ("Socket wasn't intialized correctly")) }
+      if (!this.socket) { return reject(new Error ('Socket wasn\'t intialized correctly')) }
       this.socket.once('connect', resolve)
       this.socket.once('error', reject)
     })
@@ -228,7 +302,11 @@ export default class PeerTracker {
 
     this.currentPlane = plane
 
-    this.socket.emit('enter_plane', {plane})
+    this.socket.emit('enter_plane', {plane_id: plane}, (response) => {
+      if (response !== 'error') {
+
+      }
+    })
   }
 
   leavePlane(plane: string) {
@@ -238,7 +316,7 @@ export default class PeerTracker {
 
     this.currentPlane = null
 
-    this.socket.emit('leave_plane', {plane})
+    this.socket.emit('leave_plane', {plane_id: plane})
   }
 
   async initiatePeerConnection(peerId: string) {
@@ -246,12 +324,12 @@ export default class PeerTracker {
     // Check first that we don't already have an open connection
     let existingPeer = this.peerTable.get(peerId)
     if (existingPeer && existingPeer.ready == true) {
-      return Promise.reject("Peer already connected")
+      return Promise.reject('Peer already connected')
     }
 
     // See if an offer is already in progress
     if (this.openConnectionOffers[peerId]) {
-      return Promise.reject("Peer connection already initiated")
+      return Promise.reject('Peer connection already initiated')
     }
 
     // Note that we are making an offer to a remote peer
@@ -288,8 +366,6 @@ export default class PeerTracker {
     this.socket.emit('connection_answer', {to_peer: remotePeerUid, from_peer: this.localPeerInstance.uid, answer: answerData})
   }
 
-
-
   on(event: string, listener: (...args: any[]) => void) {
     this.events.on(event, listener)
   }
@@ -310,6 +386,15 @@ export default class PeerTracker {
     }
     else {
       return this.peerTable.all()
+    }
+  }
+
+  getPeer(filter: {plane?: string, uid?: string} = {}) {
+    if (filter.plane) {
+      return first(this.peerTable.plane(filter.plane).find(omit(filter, 'plane')))
+    }
+    else {
+      return first(this.peerTable.find(omit(filter, 'plane')))
     }
   }
 

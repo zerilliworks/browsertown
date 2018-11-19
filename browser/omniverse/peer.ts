@@ -3,6 +3,9 @@ import invariant from 'invariant'
 import * as SimplePeer from "simple-peer";
 import * as _ from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
+import {Subject, Subscribable} from 'rxjs'
+import PeerTable from './peer-table'
+import {ReactableEvent} from './reactable'
 
 let Peer: SimplePeer.SimplePeer
 if (typeof window !== 'undefined') {
@@ -25,6 +28,14 @@ interface IPeerRPCErrorResponse {
 type PeerRPCResponse = IPeerRPCSuccessResponse | IPeerRPCErrorResponse
 
 const NO_SCOPE = Symbol()
+
+export type PeerEvent = ReactableEvent<'connect', IPeer>
+                      | ReactableEvent<'disconnect', IPeer>
+                      | ReactableEvent<'signal', any, IPeer>
+                      | ReactableEvent<'data', any, IPeer>
+                      | ReactableEvent<'stream', any, IPeer>
+                      | ReactableEvent<'track', any, IPeer>
+                      | ReactableEvent<'close', any, IPeer>
 
 /**
  * Data that identifies a peer and provides methods to call for sending and
@@ -104,7 +115,7 @@ export interface IPeer {
 }
 
 
-export class RemotePeer implements IPeer {
+export class RemotePeer implements IPeer, Subscribable<any> {
   private connection?: any;
   private readonly dataEvents: EventEmitter2;
 
@@ -114,6 +125,8 @@ export class RemotePeer implements IPeer {
   ready: boolean;
   status: "connected" | "disconnected" | "error" | "connecting";
   uid: PeerUUID;
+  private subject: Subject<any>
+  private observable: any
 
   get shortUid() { return this.uid.split('-')[0] }
 
@@ -128,6 +141,13 @@ export class RemotePeer implements IPeer {
     this.initiator = false
 
     this.dataEvents = new EventEmitter2({wildcard: true})
+
+    this.subject = new Subject()
+    this.observable = this.subject.asObservable()
+
+    // this.dataEvents.onAny((...args) => {
+    //   console.debug('Incoming data packet', args)
+    // })
   }
 
   async sendCall(method: string, payload: any): Promise<PeerRPCResponse> {
@@ -165,7 +185,12 @@ export class RemotePeer implements IPeer {
   }
 
   onData(scope: string, listener: (data: any, scope?: any) => void): void {
-    this.dataEvents.on(scope, listener)
+    if(scope === '*') {
+      this.dataEvents.onAny(listener)
+    }
+    else {
+      this.dataEvents.on(scope, listener)
+    }
   }
 
   async events(events: string[]) {
@@ -206,6 +231,10 @@ export class RemotePeer implements IPeer {
 
   hasConnection(): boolean {
     return !!this.connection;
+  }
+
+  subscribe(...args: any[]) {
+    return this.observable.subscribe(...args)
   }
 }
 

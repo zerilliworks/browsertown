@@ -1,27 +1,39 @@
-import {IPeer, LocalPeer, PeerUUID, RemotePeer} from "./peer";
+import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
 import {values, filter, map} from 'lodash'
 // @ts-ignore
 import * as graphlib from '@dagrejs/graphlib'
 import invariant from 'invariant'
+import {Observable, Observer, PartialObserver, Subject, Subscribable, Unsubscribable} from 'rxjs'
+import {ReactableEvent} from './reactable'
 
 export interface IPeerTableRecord {
   peer: IPeer,
   plane: string
 }
 
-export default class PeerTable {
-  private readonly peerTable: Record<string, IPeerTableRecord>;
-  private peerGraph: any;
-  // We hold a local peer reference here so we can distinguish it
-  private localPeer: IPeer;
-  planeSelector?: string;
-  private traceEnabled: boolean
+export type PeerTableEvent = ReactableEvent<'peer_added', IPeer, PeerTable>
+                           | ReactableEvent<'peer_removed', string, PeerTable>
+                           | ReactableEvent<'peers_associated', [PeerUUID, PeerUUID], PeerTable>
+                           | ReactableEvent<'peers_dissociated', [PeerUUID, PeerUUID], PeerTable>
 
-  constructor(localPeer: LocalPeer, options: {trace?: boolean} = {trace: false}) {
+
+export default class PeerTable implements Subscribable<PeerTableEvent> {
+  private readonly peerTable: Record<string, IPeerTableRecord>
+  private peerGraph: any
+  // We hold a local peer reference here so we can distinguish it
+  private localPeer: IPeer
+  planeSelector?: string
+  private traceEnabled: boolean
+  private subject: Subject<PeerTableEvent>
+  private observable: Observable<PeerTableEvent>
+
+  constructor(localPeer: LocalPeer, options: { trace?: boolean } = {trace: false}) {
     this.localPeer = localPeer
     this.peerTable = {}
     this.peerGraph = new graphlib.Graph({directed: false})
     this.traceEnabled = options.trace || false
+    this.subject = new Subject()
+    this.observable = this.subject.asObservable()
   }
 
   plane(planeId: string) {
@@ -31,10 +43,10 @@ export default class PeerTable {
   }
 
   insert(peer: IPeer): boolean {
-    invariant(this.planeSelector, "You must select a plane when inserting peers: be sure to chain plane(...) call to set plane selector.")
+    invariant(this.planeSelector, 'You must select a plane when inserting peers: be sure to chain plane(...) call to set plane selector.')
 
     this.trace(() => {
-      console.debug("Inserting peer", {plane: this.planeSelector, peer})
+      console.debug('Inserting peer', {plane: this.planeSelector, peer})
       console.trace()
     })
 
@@ -44,12 +56,18 @@ export default class PeerTable {
     }
     this.peerGraph.setNode(peer.uid)
 
+    this.subject.next({event: 'peer_added', payload: peer, instance: this})
+
     return true
   }
 
   get(uid: PeerUUID): IPeer | null {
     let p = this.peerTable[uid]
     return p ? p.peer : null
+  }
+
+  find(predicate: any) {
+    return filter(this.all(), predicate)
   }
 
   all(): IPeer[] {
@@ -63,28 +81,34 @@ export default class PeerTable {
 
   remove(peer: IPeer): void {
     this.trace(() => {
-      console.debug("Deleting peer", {plane: this.planeSelector, peer})
+      console.debug('Deleting peer', {plane: this.planeSelector, peer})
       console.trace()
     })
 
     delete this.peerTable[peer.uid]
+
+    this.subject.next({event: 'peer_removed', payload: peer.uid, instance: this})
   }
 
   removeByUid(uid: PeerUUID): void {
     this.trace(() => {
-      console.debug("Deleting peer UUID", {plane: this.planeSelector, peer: uid})
+      console.debug('Deleting peer UUID', {plane: this.planeSelector, peer: uid})
       console.trace()
     })
 
     delete this.peerTable[uid]
+
+    this.subject.next({event: 'peer_removed', payload: uid, instance: this})
   }
 
   associate(peerA: PeerUUID, peerB: PeerUUID) {
     this.peerGraph.setEdge(peerA, peerB)
+    this.subject.next({event: 'peers_associated', payload: [peerA, peerB], instance: this})
   }
 
   dissociate(peerA: PeerUUID, peerB: PeerUUID) {
     this.peerGraph.removeEdge(peerA, peerB)
+    this.subject.next({event: 'peers_dissociated', payload: [peerA, peerB], instance: this})
   }
 
   /**
@@ -128,5 +152,9 @@ export default class PeerTable {
 
   disableTrace() {
     this.traceEnabled = false
+  }
+
+  subscribe(...args: any[]) {
+    return this.observable.subscribe(...args)
   }
 }

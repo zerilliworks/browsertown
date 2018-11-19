@@ -1,6 +1,7 @@
 import {Socket} from "socket.io";
 import * as crypto from "crypto";
 import {Request, Response} from "express";
+import * as _ from 'lodash'
 
 const express = require('express');
 const app = express();
@@ -90,15 +91,24 @@ io.on('connection', (socket: Socket) => {
   socket.join(`peer.${socketUid}`)
 
   // Listen for requests to join planes
-  socket.on('enter_plane', ({plane_id}) => {
-    let planeRoom = `planes.${hashPlaneId(plane_id)}`;
-    let planeObject = findOrCreatePlane(plane_id)
-    planeObject.peers.push(socketUid)
-    socket.join(planeRoom)
+  socket.on('enter_plane', ({plane_id}, reply = () => {}) => {
+    console.log(`Peer entering ${plane_id}`)
+    try {
+      let planeRoom = `planes.${hashPlaneId(plane_id)}`;
+      let planeObject = findOrCreatePlane(plane_id)
+      planeObject.peers.push(socketUid)
+      socket.join(planeRoom)
 
-    // Broadcast new peers
-    socket.broadcast.to(planeRoom).emit('plane_update', planeObject)
-    socket.broadcast.to(planeRoom).emit('peer_join', {peer: socketUid, plane: "1"})
+      // Broadcast new peers
+      socket.broadcast.to(planeRoom).emit('plane_update', planeObject)
+      socket.emit('plane_update', planeObject)
+      socket.broadcast.to(planeRoom).emit('peer_join', {peer: socketUid, plane: plane_id})
+
+      reply(planeObject)
+    }
+    catch (e) {
+      reply('error')
+    }
   })
 
   peerTable[socketUid] = {uid: socketUid, socket}
@@ -108,10 +118,14 @@ io.on('connection', (socket: Socket) => {
     console.log("Peer disconnected", reason, socket.handshake.query)
     socket.leaveAll()
     delete peerTable[socketUid]
-    planes[1].peers = planes[1].peers.filter(p => p !== socketUid)
-    io.emit('plane_update', planes[1])
-    if (decrementConn(socketUid) == 0) {
-      socket.broadcast.to('planes.1').emit('peer_leave', {peer: socketUid, plane: "1"})
+
+    // Find planes this peer participated in
+    let activePlanes = _.chain(planes).pickBy(p => _.includes(p.peers, socketUid)).keys().value()
+
+    for (let ap of activePlanes) {
+      _.remove(planes[ap].peers, socketUid)
+      io.emit('plane_update', planes[ap])
+      socket.broadcast.to(`planes.${hashPlaneId(planes[ap].id)}`).emit('peer_leave', {peer: socketUid, plane: planes[ap].id})
     }
   })
 

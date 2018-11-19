@@ -25,7 +25,7 @@ export default class P2PPlane extends React.Component<Props, State> {
   constructor(props) {
     super(props)
 
-    this.omniverse = new Omniverse({trackerUrl: 'https://server-preview-ma-mkw5kd.government.browser.town'})
+    this.omniverse = new Omniverse({trackerUrl: 'https://server-preview-ma-mkw5kd.government.browser.town', autoPeer: false})
 
     if (typeof window !== "undefined") {
       window.omniverse = this.omniverse

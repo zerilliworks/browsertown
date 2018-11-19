@@ -1,8 +1,9 @@
-import {IPeer, LocalPeer, RemotePeer} from './peer'
+import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
 import PouchDB from 'pouchdb'
 import {v4 as uuid} from 'uuid'
 import PeerTracker from "./peer-tracker";
 import {EventEmitter2} from "eventemitter2";
+import {defaults} from 'lodash'
 
 class PlaneScope {
   private omniverse: Omniverse;
@@ -24,25 +25,44 @@ class PlaneScope {
   }
 
   broadcast(scope: string, payload: any) {
-    this.peers().forEach(peer => {
-      peer.sendData(scope, payload)
+    let res = this.peers().map(peer => {
+      return peer.sendData(scope, payload)
     })
+    console.log('broadcasting', scope, payload, res)
   }
+}
+
+interface OmniverseOptions {
+  autoPeer: boolean
+  trackerUrl: string
 }
 
 export default class Omniverse {
   // @ts-ignore
   metabase: PouchDB.Database;
+  readonly options: OmniverseOptions;
   private myPeerId?: string;
   private myPeerInstance?: LocalPeer
   private identities?: any[];
   private tracker?: PeerTracker;
   private events: EventEmitter2;
+  private selectedPlane: string | null
+  private autoPeer: boolean
+  private debug: boolean
   private readonly trackerUrl: string;
 
-  constructor({trackerUrl}: {trackerUrl: string}) {
+  private static readonly defaultOptions = {
+    autoPeer: true,
+  }
+
+  constructor(options: { trackerUrl: string; autoPeer: boolean; plane?: string; debug?: boolean}) {
+    this.options = options
+    let {trackerUrl, autoPeer, plane} = defaults(options, Omniverse.defaultOptions)
+    this.autoPeer = autoPeer
     this.trackerUrl = trackerUrl
     this.events = new EventEmitter2({wildcard: true})
+    this.selectedPlane = plane || null
+    this.debug = !!options.debug
   }
 
   get url() { return this.trackerUrl }
@@ -59,7 +79,19 @@ export default class Omniverse {
     return this.events.off(event, listener)
   }
 
+  offAll(event: string) {
+    return this.events.removeAllListeners(event)
+  }
+
   get myPeerUid() { return this.myPeerId }
+
+  /**
+   * Scope helper, so API users don't have to glue strings together all the time
+   * @param segments
+   */
+  scope(...segments: (string | number)[]) {
+    return segments.join('.')
+  }
 
   /**
    * Start up the Omniverse
@@ -110,7 +142,7 @@ export default class Omniverse {
     this.tracker = new PeerTracker({
       peerServer: this.trackerUrl,
       localPeerInstance: this.myPeerInstance,
-      debug: true
+      debug: this.debug
     })
 
     // Proxy connection events
@@ -119,28 +151,72 @@ export default class Omniverse {
 
       // Bind the global data event to this peer
       peer.onData('*', (data: any, scope: string) => {
+        console.debug('Incoming peer broadcast', data, scope, peer.uid)
+        console.debug('Re-emitted as', `peers.${peer.uid}.message.${scope}`)
         this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
       })
     })
     this.tracker.on('peer_join', peer => this.events.emit('peer_join', peer))
     this.tracker.on('peer_leave', peer => this.events.emit('peer_leave', peer))
 
+    // Proxy tracker connection state events
+    ;[
+      'connect',
+      'connect_error',
+      'connect_timeout',
+      'disconnect',
+      'reconnect',
+      'reconnect_attempt',
+      'reconnect_error',
+      'reconnect_failed'
+    ].map(event => {
+      // @ts-ignore
+      this.tracker.on(event, (...args) => this.events.emit(event, ...args))
+    })
+
     // Reach out to tracker server
     await this.tracker.connect()
 
-    // Enter our initial plane
-    this.tracker.enterPlane('1')
-    console.info("Connected to plane 1")
+    // Join the default plane if configured
+    if (this.selectedPlane) {
+      // Enter our initial plane
+      this.enterPlane(this.selectedPlane)
+    }
+
+    // Automatically connect to new peers, if configured
+    if (this.autoPeer) {
+      this.tracker.on('peer_join', peer => {
+        let p = this.tracker.getPeer(peer)
+        console.log('Auto-connecting to ', p)
+        this.connectToPeer(p)
+      })
+    }
 
     return true
   }
 
+
+  /**
+   * Return a lens through which we can operate on planes.
+   * @param planeId
+   */
   plane(planeId: string) {
     return new PlaneScope(planeId, this)
   }
 
+  enterPlane(planeId: string) {
+    if (!this.tracker) { throw new Error("Can't enter plane when Tracker is not initialized! Boot the Omniverse first!")}
+    this.tracker.enterPlane(planeId)
+    console.info(`Connected to plane ${planeId}`)
+  }
+
   get peerTracker() { return this.tracker }
 
+  /**
+   * Connect to a peer specified by a Peer object. This typically comes
+   * from the peer table or via a notification of a new peer joining.
+   * @param peer
+   */
   async connectToPeer(peer: IPeer) {
     if (!this.tracker) { throw new Error('Peer tracker not initialized!') }
     try {
