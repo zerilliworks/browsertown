@@ -82,6 +82,7 @@ export default class extends React.Component {
   componentWillUnmount() {
     omni.offAll('reconnect')
     omni.offAll('reconnect_attempt')
+    omni.deconstruct()
   }
 
   render () {

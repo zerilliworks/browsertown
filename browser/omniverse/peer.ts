@@ -106,7 +106,7 @@ export interface IPeer {
   signal(siglanData?: any): Promise<any>
 
   // Convenience method for filtering data events by scope
-  onData(scope: string, listener: (...args: any[]) => void): void
+  onData(scope: string, listener: (data: any, scope: string) => void): void
 
   constructConnection(connectionOptions: object): void;
   destroyConnection(): void;
@@ -185,8 +185,11 @@ export class RemotePeer implements IPeer, Subscribable<any> {
   }
 
   onData(scope: string, listener: (data: any, scope?: any) => void): void {
+    console.log("Add data listener", scope, listener.toString())
     if(scope === '*') {
-      this.dataEvents.onAny(listener)
+      this.dataEvents.onAny((scope: string | string[], data: any[]) => {
+        listener(data, scope)
+      })
     }
     else {
       this.dataEvents.on(scope, listener)
@@ -218,9 +221,9 @@ export class RemotePeer implements IPeer, Subscribable<any> {
     this.connection.on('data', (rawData: Uint8Array) => {
       let data: object = JSON.parse(rawData.toString())
       let scope
-      if (scope = _.get(data, '_scope', NO_SCOPE) !== NO_SCOPE) {
+      if ((scope = _.get(data, '_scope', NO_SCOPE)) !== NO_SCOPE) {
         let {_scope, _payload} = (data as {_scope: string, _payload: any})
-        this.dataEvents.emit(_scope, _payload, _scope)
+        this.dataEvents.emit(scope, _payload, _scope)
       }
     })
   }
