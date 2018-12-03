@@ -8,11 +8,11 @@ Works like hot garbage right now, but I think the ideas are pretty good, so I'm
 gonna see where this goes.
 
 ## Prior Art & Inspirations
-- Ephemeral P2P (https://github.com/losvedir/ephemeral2)[https://github.com/losvedir/ephemeral2]
-- Peer.js (https://peerjs.com/)[https://peerjs.com/]
-- Dat Project (https://github.com/datproject)[https://github.com/datproject]
-- Scuttlebutt (https://scuttlebutt.nz/)[https://scuttlebutt.nz/]
-- Edsu (https://edsu.org/)[https://edsu.org/]
+- Ephemeral P2P [https://github.com/losvedir/ephemeral2](https://github.com/losvedir/ephemeral2)
+- Peer.js [https://peerjs.com/](https://peerjs.com/)
+- Dat Project [https://github.com/datproject](https://github.com/datproject)
+- Scuttlebutt [https://scuttlebutt.nz/](https://scuttlebutt.nz/)
+- Edsu [https://edsu.org/](https://edsu.org/)
 
 ## A little background
 I am working on the data distribution layer of this thing right now, something
