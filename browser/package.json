@@ -61,6 +61,7 @@
     "lodash": "^4.17.11",
     "lokijs": "^1.5.5",
     "moment": "^2.22.2",
+    "mousetrap": "^1.6.2",
     "next": "^7.0.2",
     "node-webcrypto-ossl": "^1.0.38",
     "peerjs": "^0.3.18",

@@ -3,7 +3,7 @@ import * as React from 'react'
 import * as moment from 'moment'
 import ambientConsole from '../ambient-console'
 import eyes from 'eyes'
-import {trim} from 'lodash'
+import {trim, flatMap} from 'lodash'
 
 export default class AmbientConsole extends Component<{maxLength: number}, {messages: Array<{ts: any, type: string, message: any}>}> {
   private inspector: any
@@ -29,8 +29,8 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
 
     function update() {
       // @ts-ignore
-      self.state.messages = self.state.messages.slice(self.props.maxLength * -1, self.props.maxLength)
-      self.forceUpdate()
+      let nm = self.state.messages.slice(self.props.maxLength * -1, self.props.maxLength)
+      self.setState({messages: nm})
     }
 
     // @ts-ignore
@@ -73,9 +73,11 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
   }
 
   render() {
+    const logLines = flatMap(this.state.messages, (logLine) => logLine.message.split("\\n").map(message => ({...logLine, message})))
+    console.log(logLines)
     return (
       <div className="fixed p-2 pin-b pin-l w-auto bg-transparent text-grey-light hover:text-grey-dark text-sm font-mono" style={{pointerEvents: 'none'}}>
-        {this.state.messages.map(m => <p key={m.ts + m.message}>[{moment(m.ts).format()}]: {m.message}</p>)}
+        {logLines.map(m => <p key={m.ts + m.message}>[{moment(m.ts).format()}]: {m.message}</p>)}
       </div>
     )
   }

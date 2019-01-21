@@ -86,16 +86,17 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
 
   async componentDidMount() {
     setTimeout(() => {
-      ac.log('~~~ HELLO THERE ~~~')
-      ac.log('BrowserTown v0.0.47')
-      ac.log('~~~~~~~~~~~~~~~~~~~')
-      ac.log('Booting the omniverse...')
+      ac.log(`~~~ HELLO THERE ~~~
+      BrowserTown v0.0.48
+      ~~~~~~~~~~~~~~~~~~~
+      Booting the omniverse...`)
     })
 
     this.omniverse.boot()
       .then(() => {
         ac.log('Portal to omniverse open at ' + this.omniverse.url)
         ac.log('I am peer with ID ' + this.omniverse.myPeerUid)
+        this.printHelp()
 
         // Bind join events
         this.omniverse.on('peer_join',  (peer: IPeer) => {
@@ -127,6 +128,11 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
             }
           })
         })
+
+        // Bind shouts
+        this.omniverse.on('peers.*.message.shout', (data: any, scope: string, fromPeer: IPeer) => {
+          ac.log("%c %s: %s", "color: blue", fromPeer.shortUid, data.message)
+        })
       })
       .catch(console.error.bind(console))
   }
@@ -134,6 +140,14 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   componentWillUnmount() {
     ac.log('>>>>>>!!! REBOOT !!!<<<<<<')
     this.omniverse.deconstruct()
+  }
+
+  private printHelp() {
+    ac.log(`
+    > TIPS:
+    - Click and drag to move around, or scroll on your trackpad
+    - Press 's' on your keyboard to shout
+    `)
   }
 
   getCanvasTransform(): CSSProperties {
