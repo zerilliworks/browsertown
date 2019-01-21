@@ -28,7 +28,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   constructor(props: ITownPlaneProps) {
     super(props)
 
-    this.omniverse = new Omniverse({trackerUrl: 'https://server-preview-ma-mkw5kd.government.browser.town'})
+    this.omniverse = new Omniverse({trackerUrl: 'http://greenie.local:8765', plane: 'public', autoPeer: true})
     if (typeof window !== 'undefined') window.omniverse = this.omniverse
 
     this.state = {
@@ -87,7 +87,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   async componentDidMount() {
     setTimeout(() => {
       ac.log('~~~ HELLO THERE ~~~')
-      ac.log('Browser Town v0.0.42')
+      ac.log('BrowserTown v0.0.47')
       ac.log('~~~~~~~~~~~~~~~~~~~')
       ac.log('Booting the omniverse...')
     })
@@ -95,6 +95,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
     this.omniverse.boot()
       .then(() => {
         ac.log('Portal to omniverse open at ' + this.omniverse.url)
+        ac.log('I am peer with ID ' + this.omniverse.myPeerUid)
 
         // Bind join events
         this.omniverse.on('peer_join',  (peer: IPeer) => {
@@ -118,6 +119,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
 
         // Bind incoming cursor updates
         this.omniverse.on('peers.*.message.*', (data: any, scope: string, fromPeer: IPeer) => {
+          console.log(data)
           this.setState({
             ghostCursors: {
               ...this.state.ghostCursors,
@@ -188,6 +190,6 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   }
 
   private updateCursor(clientX: number, clientY: number) {
-    this.omniverse.plane('1').broadcast('cursor_update', {x: clientX, y: clientY})
+    this.omniverse.plane('public').broadcast('cursor_update', {x: clientX, y: clientY})
   }
 }

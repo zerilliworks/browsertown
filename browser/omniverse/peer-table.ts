@@ -1,9 +1,10 @@
 import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
-import {values, filter, map} from 'lodash'
+import {values, filter, map, matches} from 'lodash'
 // @ts-ignore
 import * as graphlib from '@dagrejs/graphlib'
 import invariant from 'invariant'
 import {Observable, Observer, PartialObserver, Subject, Subscribable, Unsubscribable} from 'rxjs'
+import {filter as rx_filter} from 'rxjs/operators'
 import {ReactableEvent} from './reactable'
 
 export interface IPeerTableRecord {
@@ -40,6 +41,19 @@ export default class PeerTable implements Subscribable<PeerTableEvent> {
     let proxy: PeerTable = Object.create(this)
     proxy.planeSelector = planeId
     return proxy
+  }
+
+  register(id: PeerUUID): boolean {
+    // If the peer is know to us already, don't re-register
+    if (this.get(id)) {
+      return false
+    }
+
+    // New up a RemotePeer and insert it
+    let peerInstance = new RemotePeer(id, {direct: false})
+    this.insert(peerInstance) // Insert, respecting contextual plane selection
+
+    return true
   }
 
   insert(peer: IPeer): boolean {
@@ -156,5 +170,9 @@ export default class PeerTable implements Subscribable<PeerTableEvent> {
 
   subscribe(...args: any[]) {
     return this.observable.subscribe(...args)
+  }
+
+  on(event: string, listener: (...args: any[]) => void) {
+    return this.observable.pipe(rx_filter(matches({event}))).subscribe(listener)
   }
 }

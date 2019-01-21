@@ -1,7 +1,7 @@
 import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
 import PouchDB from 'pouchdb'
 import {v4 as uuid} from 'uuid'
-import PeerTracker from "./peer-tracker";
+import PeerTracker from "./peer-tracker2";
 import {EventEmitter2} from "eventemitter2";
 import {defaults} from 'lodash'
 
@@ -156,7 +156,9 @@ export default class Omniverse {
         this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
       })
     })
-    this.tracker.on('peer_join', peer => this.events.emit('peer_join', peer))
+    this.tracker.on('peer_join', peer => {
+      this.events.emit('peer_join', peer)
+    })
     this.tracker.on('peer_leave', peer => this.events.emit('peer_leave', peer))
 
     // Proxy tracker connection state events
@@ -185,11 +187,24 @@ export default class Omniverse {
 
     // Automatically connect to new peers, if configured
     if (this.autoPeer) {
-      this.tracker.on('peer_join', peer => {
-        let p = this.tracker.getPeer(peer)
-        console.log('Auto-connecting to ', p)
-        this.connectToPeer(p)
+
+      this.tracker.on('peer_announce', peer => {
+        if (peer.uid > this.myPeerUid) {
+          console.log("Anticipating auto-connection from", peer)
+          return
+        }
+
+        console.log('Auto-connecting to ', peer)
+        this.connectToPeer(peer)
       })
+
+      // this.tracker.on('peer_join', peer => {
+      //   // Test if peer will auto-initiate with us or vice-versa
+      //   if (peer.uid > this.myPeerUid) {
+      //     console.log("Anticipating auto-connection from", peer)
+      //     return
+      //   }
+      // })
     }
 
     return true
@@ -231,5 +246,11 @@ export default class Omniverse {
   deconstruct() {
     if (!this.tracker) { throw new Error('Peer tracker not initialized!') }
     this.tracker.disconnect()
+  }
+
+  debugInfo() {
+    console.dir({
+      "Connection Offers": this.peerTracker.connectionOffers
+    })
   }
 }

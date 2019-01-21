@@ -1,6 +1,7 @@
 {
   "include": [
     "server.ts",
+    "server2.ts",
     "__test__/*.ts"
   ],
   "compilerOptions": {

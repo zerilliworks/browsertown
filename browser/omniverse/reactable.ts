@@ -14,3 +14,11 @@ export interface ReactableEvent<E extends string, P, I = P> {
   payload: P,
   instance: I
 }
+
+export interface ReactableSet<T> {
+  elements: Array<T>,
+  changes: Array<{
+    op: ('add' | 'remove' | 'change'),
+    element: T
+  }>
+}
