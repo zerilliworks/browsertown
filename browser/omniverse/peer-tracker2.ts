@@ -1,12 +1,14 @@
 import io from 'socket.io-client'
 // import { URL } from 'url'
 import PeerTable from './peer-table'
-import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
+import {LocalPeer} from './local-peer'
 import invariant from 'invariant'
 import _, {omit, first} from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
 import {map, flatMap} from 'lodash'
 import {Observable, Subscription, Subject} from 'rxjs'
+import {IPeer, PeerUUID} from './peer'
+import {RemotePeer} from './remote-peer'
 
 let Peer
 if (typeof window !== 'undefined') {
@@ -229,8 +231,27 @@ export default class PeerTracker {
       )
 
       console.info('Received connection offer', {from_peer, offer})
+      console.debug(this.openConnectionOffers)
 
-      this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
+      if (!this.openConnectionOffers[from_peer]) {
+        // Set up a new ledger entry for this offer we just got
+        this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
+      }
+      else {
+        // We already have a known connection here! Either it's open already, or we were mid-
+        // handshake and got interrupted. Either way, obliterate and start over.
+        switch (this.openConnectionOffers[from_peer].status) {
+          case 'open':
+            // Destroy the open connection and start anew. This often happens
+            // when a peer reloads or crashes and rejoins quickly.
+            console.log("Re-opening connection")
+            this.peerTable.plane(this.currentPlane).disconnectFromPeer(from_peer)
+            this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
+            break
+          default: break
+        }
+      }
+
 
       // -> Create or update a peer record with a connection to track this pairing.
       //    Create the connection with initiator = false because the other peer started this.
@@ -349,7 +370,14 @@ export default class PeerTracker {
     // Check first that we don't already have an open connection
     let existingPeer = this.peerTable.get(peerId)
     if (existingPeer && existingPeer.ready == true) {
-      console.error("Peer already connected:  " + peerId)
+      console.error(`${peerId} has an open connection already, testing viability`)
+
+      try {
+        let resp = await existingPeer.sendCall('ping', {})
+      } catch (e) {
+
+      }
+
       return Promise.reject('Peer already connected')
     }
 

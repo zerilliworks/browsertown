@@ -1,4 +1,4 @@
-import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
+import {LocalPeer} from './local-peer'
 import {values, filter, map, matches} from 'lodash'
 // @ts-ignore
 import * as graphlib from '@dagrejs/graphlib'
@@ -6,6 +6,8 @@ import invariant from 'invariant'
 import {Observable, Observer, PartialObserver, Subject, Subscribable, Unsubscribable} from 'rxjs'
 import {filter as rx_filter} from 'rxjs/operators'
 import {ReactableEvent} from './reactable'
+import {IPeer, PeerUUID} from './peer'
+import {RemotePeer} from './remote-peer'
 
 export interface IPeerTableRecord {
   peer: IPeer,
@@ -152,6 +154,18 @@ export default class PeerTable implements Subscribable<PeerTableEvent> {
     }
 
     return peer
+  }
+
+  disconnectFromPeer(peerUid: PeerUUID, options: object = {}): boolean {
+    let peer = this.get(peerUid)
+
+    if (peer && peer.hasConnection()) {
+      peer.destroyConnection()
+      return true
+    }
+    else {
+      return false
+    }
   }
 
   private trace(effect: () => void) {

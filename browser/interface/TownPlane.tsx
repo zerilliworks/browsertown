@@ -3,7 +3,7 @@ import * as React from 'react'
 import {map, throttle} from 'lodash'
 import ac from '../ambient-console'
 import Omniverse from '../omniverse'
-import {IPeer} from '../omniverse/peer'
+import {IPeer} from './peer'
 
 interface ITownPlaneState {
   canvas: {

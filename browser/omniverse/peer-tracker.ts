@@ -1,12 +1,14 @@
 import io from 'socket.io-client'
 // import { URL } from 'url'
 import PeerTable from './peer-table'
-import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
+import {LocalPeer} from './local-peer'
 import invariant from 'invariant'
 import _, {omit, first} from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
 import {map, flatMap} from 'lodash'
 import {Observable, Subscription, Subject} from 'rxjs'
+import {IPeer, PeerUUID} from './peer'
+import {RemotePeer} from './remote-peer'
 
 let Peer
 if (typeof window !== 'undefined') {

@@ -1,42 +1,3 @@
-import {v4 as generateUuid} from 'uuid'
-import invariant from 'invariant'
-import * as SimplePeer from "simple-peer";
-import * as _ from 'lodash'
-import {EventEmitter2} from 'eventemitter2'
-import {Subject, Subscribable} from 'rxjs'
-import PeerTable from './peer-table'
-import {ReactableEvent} from './reactable'
-
-let Peer: SimplePeer.SimplePeer
-if (typeof window !== 'undefined') {
-  Peer = require('simple-peer');
-}
-
-interface IPeerRPCSuccessResponse {
-  error: false,
-  status: 'ok',
-  payload: any
-}
-
-interface IPeerRPCErrorResponse {
-  error: true,
-  status: 'error',
-  reason: any,
-  meta?: any
-}
-
-type PeerRPCResponse = IPeerRPCSuccessResponse | IPeerRPCErrorResponse
-
-const NO_SCOPE = Symbol()
-
-export type PeerEvent = ReactableEvent<'connect', IPeer>
-                      | ReactableEvent<'disconnect', IPeer>
-                      | ReactableEvent<'signal', any, IPeer>
-                      | ReactableEvent<'data', any, IPeer>
-                      | ReactableEvent<'stream', any, IPeer>
-                      | ReactableEvent<'track', any, IPeer>
-                      | ReactableEvent<'close', any, IPeer>
-
 /**
  * Data that identifies a peer and provides methods to call for sending and
  * receiving data.
@@ -60,6 +21,30 @@ export type PeerEvent = ReactableEvent<'connect', IPeer>
  * The IPeer interface describes a single node in the larger peer network. Many
  * IPeer instances are kept within the PeerTable.
  */
+import {ReactableEvent} from './reactable'
+
+interface IPeerRPCSuccessResponse {
+  error: false,
+  status: 'ok',
+  payload: any
+}
+
+export interface IPeerRPCErrorResponse {
+  error: true,
+  status: 'error',
+  reason: any,
+  meta?: any
+}
+
+export type PeerRPCResponse = IPeerRPCSuccessResponse | IPeerRPCErrorResponse
+export const NO_SCOPE = Symbol()
+export type PeerEvent = ReactableEvent<'connect', IPeer>
+  | ReactableEvent<'disconnect', IPeer>
+  | ReactableEvent<'signal', any, IPeer>
+  | ReactableEvent<'data', any, IPeer>
+  | ReactableEvent<'stream', any, IPeer>
+  | ReactableEvent<'track', any, IPeer>
+  | ReactableEvent<'close', any, IPeer>
 export type PeerUUID = string
 
 export interface IPeer {
@@ -76,7 +61,7 @@ export interface IPeer {
   ready: boolean
 
   // What is the status of the connection to this peer?
-  status: "connected" | "disconnected" | "error" | "connecting"
+  status: 'connected' | 'disconnected' | 'error' | 'connecting'
 
   // Did we initiate this peer connection?
   initiator: boolean
@@ -109,209 +94,31 @@ export interface IPeer {
   onData(scope: string, listener: (data: any, scope: string) => void): void
 
   constructConnection(connectionOptions: object): void;
+
   destroyConnection(): void;
 
   hasConnection(): boolean;
 }
 
-
-export class RemotePeer implements IPeer, Subscribable<any> {
-  private connection?: any;
-  private readonly dataEvents: EventEmitter2;
-
-  direct: boolean;
-  local: boolean;
-  initiator: boolean;
-  ready: boolean;
-  status: "connected" | "disconnected" | "error" | "connecting";
-  uid: PeerUUID;
-  private subject: Subject<any>
-  private observable: any
-
-  get shortUid() { return this.uid.split('-')[0] }
-
-  constructor(uid: string, options: { direct: boolean }) {
-    invariant(uid, "You must provide a UID when setting up remote peers")
-
-    this.uid = uid
-    this.status = "disconnected"
-    this.local = false
-    this.direct = options.direct
-    this.ready = false
-    this.initiator = false
-
-    this.dataEvents = new EventEmitter2({wildcard: true})
-
-    this.subject = new Subject()
-    this.observable = this.subject.asObservable()
-
-    // this.dataEvents.onAny((...args) => {
-    //   console.debug('Incoming data packet', args)
-    // })
-  }
-
-  async sendCall(method: string, payload: any): Promise<PeerRPCResponse> {
-    return new Promise((resolve: (r: PeerRPCResponse) => void) => resolve({
-      status: 'error',
-      error: true,
-      reason: 'rpc_not_implemented'
-    }))
-  }
-
-  sendCast(method: string, payload: any): void {
-  }
-
-  sendData(scope: string = "", payload: any = {}): boolean {
-    if(! this.connection || ! this.connection.writable) {
-      return false
-    }
-
-    try {
-      this.connection.send(JSON.stringify({_scope: scope, _payload: payload}))
-      return true
-    }
-    catch (e) {
-      console.error("Failed to send to peer", this, e)
-      return false
-    }
-  }
-
-  on(event: string, handler: (...args: any[]) => void) {
-    return this.connection.on(event, handler)
-  }
-
-  once(event: string, handler: (...args: any[]) => void) {
-    return this.connection.once(event, handler)
-  }
-
-  onData(scope: string, listener: (data: any, scope?: any) => void): void {
-    console.log("Add data listener", scope, listener.toString())
-    if(scope === '*') {
-      this.dataEvents.onAny((scope: string | string[], data: any[]) => {
-        listener(data, scope)
-      })
-    }
-    else {
-      this.dataEvents.on(scope, listener)
-    }
-  }
-
-  async events(events: string[]) {
-    return new Promise((resolve, reject) => {
-      this.connection.once('error', reject)
-      for (let event of events) {
-        this.connection.once(event, resolve)
-      }
-    })
-  }
-
-  async signal(signalData?: any) {
-    return new Promise((resolve, reject) => {
-      this.connection.once('error', reject)
-      this.connection.once('signal', resolve)
-      signalData && this.connection.signal(signalData)
-    })
-  }
-
-  constructConnection(connectionOptions: object = {}): void {
-    this.connection = new Peer(connectionOptions)
-    this.direct = true
-
-    // Bind connection listeners
-    this.connection.on('data', (rawData: Uint8Array) => {
-      let data: object = JSON.parse(rawData.toString())
-      let scope
-      if ((scope = _.get(data, '_scope', NO_SCOPE)) !== NO_SCOPE) {
-        let {_scope, _payload} = (data as {_scope: string, _payload: any})
-        this.dataEvents.emit(scope, _payload, _scope)
-      }
-    })
-  }
-
-  destroyConnection(): void {
-    if (this.connection) this.connection.destroy()
-  }
-
-  hasConnection(): boolean {
-    return !!this.connection;
-  }
-
-  subscribe(...args: any[]) {
-    return this.observable.subscribe(...args)
-  }
+export type IPacket = IDataPacket | IRPCRequestPacket | IRPCResponsePacket
+export type IDataPacket = {
+  _type: 'data'
+  _version: number
+  _scope: 'string'
+  _payload: any
 }
-
-
-
-
-
-export class LocalPeer implements IPeer {
-  private connection?: any;
-  direct: boolean;
-  initiator: boolean;
-  local: boolean;
-  ready: boolean;
-  status: "connected" | "disconnected" | "error" | "connecting";
-  uid: PeerUUID;
-
-  get shortUid() { return this.uid.split('-')[0] }
-
-  constructor(uid?: string) {
-    this.uid = uid || generateUuid()
-    this.local = true
-    this.direct = true
-    this.connection = null // No need to connect to ourselves
-    this.status = "connected" // We're always connected to ourselves, obvs
-    this.ready = true
-    this.initiator = false
-  }
-
-  sendCall(method: string, payload: any): Promise<PeerRPCResponse> {
-    return new Promise((resolve: (r: PeerRPCResponse) => void) => resolve({
-      status: 'error',
-      error: true,
-      reason: 'rpc_not_implemented'
-    }))
-  }
-
-  sendCast(method: string, payload: any): void {
-  }
-
-  sendData(scope: string = "", payload: any = {}): void {
-  }
-
-  events(events: string[]): Promise<any> {
-    return new Promise((resolve, reject) => reject("not implemented"))
-  }
-
-  on(event: string, handler: (...args: any[]) => void) {
-  }
-
-  once(event: string, handler: (...args: any[]) => void) {
-  }
-
-  onData(scope: string, listener: (...args: any[]) => void) {
-
-  }
-
-  async signal(signalData?: any) {
-    return new Promise((resolve, reject) => {
-      this.connection.once('error', reject)
-      this.connection.once('signal', resolve)
-      this.connection.signal(signalData)
-    })
-  }
-
-  constructConnection(connectionOptions: object): void {
-    throw new Error("constructConnection() is not valid on LocalPeer instances")
-  }
-
-  destroyConnection(): void {
-    throw new Error("destroyConnection() is not valid on LocalPeer instances")
-  }
-
-  hasConnection(): boolean {
-    return !!this.connection;
-  }
-
+export type IRPCRequestPacket = {
+  _type: 'rpc_request'
+  _version: number
+  _method: string
+  _args: any
+  _cast: boolean
+  _invocationId: string
+}
+export type IRPCResponsePacket = {
+  _type: 'rpc_response'
+  _version: number
+  _method: string
+  _invocationId: string
+  _returnValue: any
 }

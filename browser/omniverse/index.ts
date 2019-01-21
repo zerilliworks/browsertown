@@ -1,9 +1,11 @@
-import {IPeer, LocalPeer, PeerUUID, RemotePeer} from './peer'
+import {LocalPeer} from './local-peer'
 import PouchDB from 'pouchdb'
 import {v4 as uuid} from 'uuid'
 import PeerTracker from "./peer-tracker2";
 import {EventEmitter2} from "eventemitter2";
 import {defaults} from 'lodash'
+import {IPeer, PeerUUID} from './peer'
+import {RemotePeer} from './remote-peer'
 
 class PlaneScope {
   private omniverse: Omniverse;

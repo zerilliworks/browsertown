@@ -1,6 +1,6 @@
 import * as React from "react";
 import Omniverse from "../omniverse";
-import {RemotePeer} from "../omniverse/peer";
+import {RemotePeer} from "./remote-peer";
 import {EventEmitter2} from "eventemitter2";
 
 // import '../css/app.css'

@@ -1,6 +1,7 @@
 import test from 'ava'
 import PeerTable from "../omniverse/peer-table";
-import {LocalPeer, RemotePeer} from "../omniverse/peer";
+import {LocalPeer} from "./local-peer";
+import {RemotePeer} from '../omniverse/remote-peer'
 
 test('peer table instantiates', (t) => {
   t.notThrows(() => new PeerTable(new LocalPeer()))
