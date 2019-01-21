@@ -4,6 +4,8 @@ import {map, throttle} from 'lodash'
 import ac from '../ambient-console'
 import Omniverse from '../omniverse'
 import {IPeer} from './peer'
+import getConfig from 'next/config'
+const {publicRuntimeConfig} = getConfig()
 
 interface ITownPlaneState {
   canvas: {
@@ -28,7 +30,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   constructor(props: ITownPlaneProps) {
     super(props)
 
-    this.omniverse = new Omniverse({trackerUrl: 'http://greenie.local:8765', plane: 'public', autoPeer: true})
+    this.omniverse = new Omniverse({trackerUrl: publicRuntimeConfig.omniverseUrl, plane: 'public', autoPeer: true})
     if (typeof window !== 'undefined') window.omniverse = this.omniverse
 
     this.state = {
