@@ -74,7 +74,6 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
 
   render() {
     const logLines = flatMap(this.state.messages, (logLine) => logLine.message.split("\\n").map(message => ({...logLine, message})))
-    console.log(logLines)
     return (
       <div className="fixed p-2 pin-b pin-l w-auto bg-transparent text-grey-light hover:text-grey-dark text-sm font-mono" style={{pointerEvents: 'none'}}>
         {logLines.map(m => <p key={m.ts + m.message}>[{moment(m.ts).format()}]: {m.message}</p>)}
