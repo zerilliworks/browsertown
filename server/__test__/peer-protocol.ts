@@ -22,7 +22,7 @@ test.before('start a server instance to test', t => {
 })
 
 test.beforeEach('create a socket connection', t => {
-  t.context.socket = io(t.context.serverUrl, {forceNew: true})
+  t.context.socket = io(t.context.serverUrl, {forceNew: true, path: '/peer'})
 })
 
 test.afterEach('disconnect from socket', t => {
