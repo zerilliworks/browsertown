@@ -166,6 +166,11 @@ export class RemotePeer implements IPeer, Subscribable<any> {
     this.connection = new Peer(connectionOptions)
     this.direct = true
 
+    this.connection.once('connect', () => {
+      this.ready = true
+      this.status = 'connected'
+    })
+
     this.bindConnectionDataEvents()
   }
 
@@ -252,8 +257,13 @@ export class RemotePeer implements IPeer, Subscribable<any> {
   }
 
   destroyConnection(): void {
-    if (this.connection) this.connection.destroy()
-    delete this.connection
+    if (this.connection) {
+      this.connection.removeAllListeners()
+      this.connection.destroy()
+      this.ready = false
+      this.status = 'disconnected'
+      delete this.connection
+    }
   }
 
   hasConnection(): boolean {

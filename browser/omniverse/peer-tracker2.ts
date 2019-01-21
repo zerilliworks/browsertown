@@ -369,17 +369,15 @@ export default class PeerTracker {
 
     // Check first that we don't already have an open connection
     let existingPeer = this.peerTable.get(peerId)
+    console.log(existingPeer)
     if (existingPeer && existingPeer.ready == true) {
-      console.error(`${peerId} has an open connection already, testing viability`)
-
-      try {
-        let resp = await existingPeer.sendCall('ping', {})
-      } catch (e) {
-
-      }
-
-      return Promise.reject('Peer already connected')
+      // Destroy the connection and reset offer
+      console.log('resetting offer')
+      existingPeer.destroyConnection()
+      delete this.openConnectionOffers[peerId]
     }
+
+    console.log(this.openConnectionOffers)
 
     // See if an offer is already in progress
     if (this.openConnectionOffers[peerId]) {
