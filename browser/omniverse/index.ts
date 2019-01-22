@@ -30,7 +30,7 @@ class PlaneScope {
     let res = this.peers().map(peer => {
       return peer.sendData(scope, payload)
     })
-    console.log('broadcasting', scope, payload, res)
+    // console.log('broadcasting', scope, payload, res)
   }
 }
 
@@ -153,8 +153,8 @@ export default class Omniverse {
 
       // Bind the global data event to this peer
       peer.onData('*', (data: any, scope: string) => {
-        console.debug('Incoming peer broadcast', data, scope, peer.uid)
-        console.debug('Re-emitted as', `peers.${peer.uid}.message.${scope}`)
+        // console.debug('Incoming peer broadcast', data, scope, peer.uid)
+        // console.debug('Re-emitted as', `peers.${peer.uid}.message.${scope}`)
         this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
       })
     })

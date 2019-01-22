@@ -21,6 +21,7 @@
     "@types/javascript-state-machine": "^2.4.1",
     "@types/lodash": "^4.14.117",
     "@types/moment": "^2.13.0",
+    "@types/mousetrap": "^1.6.1",
     "@types/next": "^7.0.3",
     "@types/phoenix": "0.0.4",
     "@types/pouchdb": "^6.3.2",

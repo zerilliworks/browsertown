@@ -3,9 +3,12 @@ import * as React from 'react'
 import {map, throttle} from 'lodash'
 import ac from '../ambient-console'
 import Omniverse from '../omniverse'
-import {IPeer} from './peer'
+import {IPeer} from '../omniverse/peer'
 import getConfig from 'next/config'
 const {publicRuntimeConfig} = getConfig()
+import Mousetrap from 'mousetrap'
+import Shout from "./Shout"
+import {withConsoleControl} from "../pages/_app";
 
 interface ITownPlaneState {
   canvas: {
@@ -21,17 +24,21 @@ interface ITownPlaneState {
 
 
 interface ITownPlaneProps {
-  renderControls: React.SFC
+  renderControls: React.SFC,
+  console: {toggle: () => void}
 }
 
-export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
+class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
   private omniverse: Omniverse
 
   constructor(props: ITownPlaneProps) {
     super(props)
 
     this.omniverse = new Omniverse({trackerUrl: publicRuntimeConfig.omniverseUrl, plane: 'public', autoPeer: true})
-    if (typeof window !== 'undefined') window.omniverse = this.omniverse
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      window.omniverse = this.omniverse
+    }
 
     this.state = {
       canvas: {
@@ -69,6 +76,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
       <div className="fixed z-50 w-full pin-t">{this.props.renderControls({})}</div>
       <div style={{...this.getCanvasTransform()}}
            className={'canvas-root w-full h-full'}>
+        <Shout color={'red'} user={'me'} pending={false} position={{x: 100, y: 100}} content={"hey idiot"}/>
         {map(this.state.ghostCursors, (cursor, id) => (
           cursor &&
           <div
@@ -87,6 +95,9 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   }
 
   async componentDidMount() {
+    Mousetrap.bind('s', this.triggerShout.bind(this))
+    Mousetrap.bind('`', this.props.console.toggle)
+
     setTimeout(() => {
       ac.log(`~~~ HELLO THERE ~~~
       BrowserTown v0.0.48
@@ -122,7 +133,7 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
 
         // Bind incoming cursor updates
         this.omniverse.on('peers.*.message.*', (data: any, scope: string, fromPeer: IPeer) => {
-          console.log(data)
+          // console.log(data)
           this.setState({
             ghostCursors: {
               ...this.state.ghostCursors,
@@ -208,4 +219,10 @@ export default class TownPlane extends Component<ITownPlaneProps, ITownPlaneStat
   private updateCursor(clientX: number, clientY: number) {
     this.omniverse.plane('public').broadcast('cursor_update', {x: clientX, y: clientY})
   }
+
+  private triggerShout() {
+
+  }
 }
+
+export default withConsoleControl(TownPlane)

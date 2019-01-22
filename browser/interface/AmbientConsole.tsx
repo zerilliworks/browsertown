@@ -5,7 +5,7 @@ import ambientConsole from '../ambient-console'
 import eyes from 'eyes'
 import {trim, flatMap} from 'lodash'
 
-export default class AmbientConsole extends Component<{maxLength: number}, {messages: Array<{ts: any, type: string, message: any}>}> {
+export default class AmbientConsole extends Component<{maxLength: number, visible: boolean}, {messages: Array<{ts: any, type: string, message: any}>}> {
   private inspector: any
   constructor(props) {
     super(props)
@@ -75,7 +75,7 @@ export default class AmbientConsole extends Component<{maxLength: number}, {mess
   render() {
     const logLines = flatMap(this.state.messages, (logLine) => logLine.message.split("\\n").map(message => ({...logLine, message})))
     return (
-      <div className="fixed p-2 pin-b pin-l w-auto bg-transparent text-grey-light hover:text-grey-dark text-sm font-mono" style={{pointerEvents: 'none'}}>
+      this.props.visible && <div className="fixed p-2 pin-b pin-l w-auto bg-transparent text-grey-light hover:text-grey-dark text-sm font-mono" style={{pointerEvents: 'none'}}>
         {logLines.map(m => <p key={m.ts + m.message}>[{moment(m.ts).format()}]: {m.message}</p>)}
       </div>
     )
