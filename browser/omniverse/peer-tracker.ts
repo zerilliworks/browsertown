@@ -140,139 +140,175 @@ export default class PeerTracker {
 
     //   ==>  Bind update listeners  <==
 
-        /*// -->  Set up initial peer table from first plane update
-        this.socket.once('plane_update', (data: PlaneDataPayload) => {
-          // Filter out our own peer
-          this.planeMetadata[data.id] = {
-            ...data,
-            peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
-          }
+    /*// -->  Set up initial peer table from first plane update
+    this.socket.once('plane_update', (data: PlaneDataPayload) => {
+      // Filter out our own peer
+      this.planeMetadata[data.id] = {
+        ...data,
+        peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
+      }
 
-          for (let planePeer of this.planeMetadata[data.id].peers) {
-            this.peerTable.plane(data.id).insert(new RemotePeer(planePeer, {direct: false}))
-          }
-        })
+      for (let planePeer of this.planeMetadata[data.id].peers) {
+        this.peerTable.plane(data.id).insert(new RemotePeer(planePeer, {direct: false}))
+      }
+    })
 
-        // -->  Sync up our plane metadata when an update gets sent
-        this.socket.on('plane_update', (data: PlaneDataPayload) => {
-          console.debug('incoming plane_update', data)
+    // -->  Sync up our plane metadata when an update gets sent
+    this.socket.on('plane_update', (data: PlaneDataPayload) => {
+      console.debug('incoming plane_update', data)
 
-          // Filter our own peer ID out of the metadata
-          this.planeMetadata[data.id] = {
-            ...data,
-            peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
-          }
+      // Filter our own peer ID out of the metadata
+      this.planeMetadata[data.id] = {
+        ...data,
+        peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
+      }
 
-          this.events.emit('plane_update', this.planeMetadata)
-          this.events.emit('peer_update')
-        })*/
+      this.events.emit('plane_update', this.planeMetadata)
+      this.events.emit('peer_update')
+    })*/
 
-        // -->  Record new peers in the PeerTable when they announce themselves
-        this.socket.on('peer_join', (peerData: {peer: PeerUUID, plane: string}) => {
-          console.debug('peer_join', peerData)
-
-          // Screen out messages that tell us our own peer ID joined,
-          // these are almost always erroneous
-          if (peerData.peer === this.localPeerInstance.uid) {
-            console.debug('(not inserting, reason: own_peer)')
-            return
-          }
-
-          // this.planeMetadata[peerData.plane].peers = _.uniq(this.planeMetadata[peerData.plane].peers.concat([peerData.peer]))
-
-          let peer = new RemotePeer(peerData.peer, {direct: false})
-          this.peerTable.plane(peerData.plane).insert(peer)
-          this.events.emit('peer_join', peer)
-          this.events.emit('peer_update')
-        })
-
-        // -->  Remove peers from the PeerTable when they leave
-        this.socket.on('peer_leave', (peerData: {peer: PeerUUID, plane: string}) => {
-          console.debug('peer_leave', peerData)
-
-          // Screen out messages that tell us our own peer ID left,
-          // these are almost always erroneous
-          if (peerData.peer === this.localPeerInstance.uid) {
-            console.debug('(not deleting, reason: own_peer)')
-            return
-          }
-
-          this.openConnectionOffers[peerData.peer] = undefined
-          let p = this.peerTable.plane(peerData.plane).get(peerData.peer)
-          p && p.destroyConnection()
-          _.remove(this.planeMetadata[peerData.plane].peers, peerData.peer)
-          this.peerTable.plane(peerData.plane).removeByUid(peerData.peer)
-          this.events.emit('peer_leave', peerData)
-          this.events.emit('peer_update')
-        })
-
-        // -->  Listen for incoming connection offers
-        this.socket.on('connection_offer', ({from_peer, to_peer, offer}: {from_peer: PeerUUID, to_peer: PeerUUID, offer: any}) => {
-          invariant(to_peer === this.localPeerInstance.uid,
-            `Incoming connection offer was addressed to a peer that isn't us!`+
-            `\n${from_peer} offered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
-          )
-
-          console.info('Received connection offer', {from_peer, offer})
-
-          this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
-
-          // -> Create or update a peer record with a connection to track this pairing.
-          //    Create the connection with initiator = false because the other peer started this.
-          let remotePeer = this.peerTable.plane(this.currentPlane).assertPeerConnection(from_peer, {initiator: false, trickle: false})
-
-          // -> Take the incoming request and provide an answer
-          remotePeer.signal(offer).then(answerData => {
-            this.sendConnectionAnswer(from_peer, answerData)
-            this.openConnectionOffers[from_peer].status = 'answered'
-          })
-
-          // -> Finalize the connection once it's open
-          remotePeer.once('connect', () => {
-            this.openConnectionOffers[from_peer].status = 'open'
-            this.events.emit('peer_connected', remotePeer)
-            console.info('Connected to peer', remotePeer.uid)
-          })
-        })
+    // --> Reply to roll_call requests from the server
+    this.socket.on('roll_call', ({newbie, plane}: {newbie: PeerUUID, plane: string}) => {
+      console.log("Received roll call with data", {newbie, plane})
+      this.socket.emit('announce', {fromPeer: this.localPeerInstance.uid, plane})
+    })
 
 
-        // Listen for answers to your connection offer
-        this.socket.on('connection_answer', ({from_peer, to_peer, answer}: {from_peer: PeerUUID, to_peer: PeerUUID, answer: any}) => {
-          invariant(to_peer === this.localPeerInstance.uid,
-            `Incoming connection answer was addressed to a peer that isn't us!`
-            + `\n${from_peer} answered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
-          )
-          invariant(
-            this.openConnectionOffers[from_peer] && this.openConnectionOffers[from_peer].status === 'offered',
-            'No open connection offer was found for this peer\'s answer'
-          )
+    // --> Handle incoming peer announcements
+    this.socket.on('announce', ({fromPeer, plane}: {fromPeer: PeerUUID, plane: string}) => {
+      console.log("Peer announced", fromPeer, plane)
+      this.peerTable.plane(plane).register(fromPeer)
+      const peer = this.peerTable.plane(plane).get(fromPeer)
+      this.events.emit('peer_announce', peer)
+      this.events.emit('peer_update')
+    })
 
-          console.info('Received connection answer', {from_peer, answer})
 
-          // -> Mark the connection record
-          this.openConnectionOffers[from_peer].status = 'answer_received'
+    // // -->  Record new peers in the PeerTable when they announce themselves
+    // this.socket.on('peer_join', (peerData: {peer: PeerUUID, plane: string}) => {
+    //   console.debug('peer_join', peerData)
+    //
+    //   // Screen out messages that tell us our own peer ID joined,
+    //   // these are almost always erroneous
+    //   if (peerData.peer === this.localPeerInstance.uid) {
+    //     console.debug('(not inserting, reason: own_peer)')
+    //     return
+    //   }
+    //
+    //   // this.planeMetadata[peerData.plane].peers = _.uniq(this.planeMetadata[peerData.plane].peers.concat([peerData.peer]))
+    //
+    //   let peer = new RemotePeer(peerData.peer, {direct: false})
+    //   this.peerTable.plane(peerData.plane).insert(peer)
+    //   this.events.emit('peer_join', peer)
+    //   this.events.emit('peer_update')
+    // })
 
-          // -> Load the connection for this peer
-          const remotePeer = this.peerTable.get(from_peer)
-          invariant(
-            remotePeer && remotePeer.hasConnection(),
-            'No peer instance was allocated for answer, we probably did not offer anything to them'
-          )
-          if (!remotePeer) { throw 'no peer' }
+    // -->  Remove peers from the PeerTable when they leave
+    this.socket.on('peer_leave', (peerData: {peer: PeerUUID, plane: string}) => {
+      console.debug('peer_leave', peerData)
 
-          // -> Signal the answer for your connection
-          remotePeer.signal(answer).then(() => {})
+      // Screen out messages that tell us our own peer ID left,
+      // these are almost always erroneous
+      if (peerData.peer === this.localPeerInstance.uid) {
+        console.debug('(not deleting, reason: own_peer)')
+        return
+      }
 
-          // -> Finalize the connection once it's open
-          remotePeer.once('connect', () => {
-            this.openConnectionOffers[from_peer].status = 'open'
+      // this.openConnectionOffers[peerData.peer] = undefined
+      let p = this.peerTable.plane(peerData.plane).get(peerData.peer)
+      p && p.destroyConnection()
+      _.remove(this.planeMetadata[peerData.plane].peers, peerData.peer)
+      this.peerTable.plane(peerData.plane).removeByUid(peerData.peer)
+      this.events.emit('peer_leave', peerData)
+      this.events.emit('peer_update')
+    })
 
-            // Bind
+    // -->  Listen for incoming connection offers
+    this.socket.on('connection_offer', ({from_peer, to_peer, offer}: {from_peer: PeerUUID, to_peer: PeerUUID, offer: any}) => {
+      invariant(to_peer === this.localPeerInstance.uid,
+        `Incoming connection offer was addressed to a peer that isn't us!`+
+        `\n${from_peer} offered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
+      )
 
-            this.events.emit('peer_connected', remotePeer)
-            console.info('Connected to peer', remotePeer.uid)
-          })
-        })
+      console.info('Received connection offer', {from_peer, offer})
+      console.debug(this.openConnectionOffers)
+
+      if (!this.openConnectionOffers[from_peer]) {
+        // Set up a new ledger entry for this offer we just got
+        this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
+      }
+      else {
+        // We already have a known connection here! Either it's open already, or we were mid-
+        // handshake and got interrupted. Either way, obliterate and start over.
+        switch (this.openConnectionOffers[from_peer].status) {
+          case 'open':
+            // Destroy the open connection and start anew. This often happens
+            // when a peer reloads or crashes and rejoins quickly.
+            console.log("Re-opening connection")
+            this.peerTable.plane(this.currentPlane).disconnectFromPeer(from_peer)
+            this.openConnectionOffers[from_peer] = {remoteUid: from_peer, status: 'offer_received'}
+            break
+          default: break
+        }
+      }
+
+
+      // -> Create or update a peer record with a connection to track this pairing.
+      //    Create the connection with initiator = false because the other peer started this.
+      let remotePeer = this.peerTable.plane(this.currentPlane).assertPeerConnection(from_peer, {initiator: false, trickle: false})
+
+      // -> Take the incoming request and provide an answer
+      remotePeer.signal(offer).then((answerData: any) => {
+        this.sendConnectionAnswer(from_peer, answerData)
+        this.openConnectionOffers[from_peer].status = 'answered'
+      })
+
+      // -> Finalize the connection once it's open
+      remotePeer.once('connect', () => {
+        this.openConnectionOffers[from_peer].status = 'open'
+        this.events.emit('peer_connected', remotePeer)
+        console.info('Connected to peer', remotePeer.uid)
+      })
+    })
+
+
+    // Listen for answers to your connection offer
+    this.socket.on('connection_answer', ({from_peer, to_peer, answer}: {from_peer: PeerUUID, to_peer: PeerUUID, answer: any}) => {
+      invariant(to_peer === this.localPeerInstance.uid,
+        `Incoming connection answer was addressed to a peer that isn't us!`
+        + `\n${from_peer} answered connection to ${to_peer}, but we are ${this.localPeerInstance.uid}.`
+      )
+      invariant(
+        this.openConnectionOffers[from_peer] && this.openConnectionOffers[from_peer].status === 'offered',
+        'No open connection offer was found for this peer\'s answer'
+      )
+
+      console.info('Received connection answer', {from_peer, answer})
+
+      // -> Mark the connection record
+      this.openConnectionOffers[from_peer].status = 'answer_received'
+
+      // -> Load the connection for this peer
+      const remotePeer = this.peerTable.get(from_peer)
+      invariant(
+        remotePeer && remotePeer.hasConnection(),
+        'No peer instance was allocated for answer, we probably did not offer anything to them'
+      )
+      if (!remotePeer) { throw 'no peer' }
+
+      // -> Signal the answer for your connection
+      remotePeer.signal(answer).then(() => {})
+
+      // -> Finalize the connection once it's open
+      remotePeer.once('connect', () => {
+        this.openConnectionOffers[from_peer].status = 'open'
+
+        // Bind
+
+        this.events.emit('peer_connected', remotePeer)
+        console.info('Connected to peer', remotePeer.uid)
+      })
+    })
 
     // Return a Promise for the connection action
     return new Promise((resolve, reject) => {
@@ -310,7 +346,7 @@ export default class PeerTracker {
 
     this.currentPlane = plane
 
-    this.socket.emit('enter_plane', {plane_id: plane}, (response) => {
+    this.socket.emit('enter_plane', {plane_id: plane}, (response: any) => {
       if (response !== 'error') {
         this.planeMetadata[plane] = response
       }
@@ -329,17 +365,25 @@ export default class PeerTracker {
 
   async initiatePeerConnection(peerId: string) {
 
+    console.log("Peer connection initiating to " + peerId)
+
     // Check first that we don't already have an open connection
     let existingPeer = this.peerTable.get(peerId)
+    console.log(existingPeer)
     if (existingPeer && existingPeer.ready == true) {
-      return Promise.reject('Peer already connected')
+      // Destroy the connection and reset offer
+      console.log('resetting offer')
+      existingPeer.destroyConnection()
+      delete this.openConnectionOffers[peerId]
     }
+
+    console.log(this.openConnectionOffers)
 
     // See if an offer is already in progress
     if (this.openConnectionOffers[peerId]) {
 
       // If we offered but they also offered, cancel our offer if we are lower
-
+      console.log("Peer connection already initiated to " + peerId)
       return Promise.reject('Peer connection already initiated')
     }
 
@@ -351,6 +395,7 @@ export default class PeerTracker {
 
     // Create an offer signal and transmit it
     const offer = await peer.signal()
+    console.log("Sending connection offer to " + peerId)
     this.sendConnectionOffer(peerId, offer)
 
     // Update our offer status

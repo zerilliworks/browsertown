@@ -1,7 +1,7 @@
 import {LocalPeer} from './local-peer'
 import PouchDB from 'pouchdb'
 import {v4 as uuid} from 'uuid'
-import PeerTracker from "./peer-tracker2";
+import PeerTracker from "./peer-tracker";
 import {EventEmitter2} from "eventemitter2";
 import {defaults} from 'lodash'
 import {IPeer, PeerUUID} from './peer'
