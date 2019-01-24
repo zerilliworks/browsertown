@@ -7,8 +7,9 @@ import {IPeer} from '../omniverse/peer'
 import getConfig from 'next/config'
 const {publicRuntimeConfig} = getConfig()
 import Mousetrap from 'mousetrap'
-import Shout from "./Shout"
+import Shout, {IShoutProps} from "./Shout"
 import {withConsoleControl} from "../pages/_app";
+import PlaneObjects, {PlaneObject} from '../omniverse/plane-objects'
 
 interface ITownPlaneState {
   canvas: {
@@ -29,7 +30,8 @@ interface ITownPlaneProps {
 }
 
 class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
-  private omniverse: Omniverse
+  private readonly omniverse: Omniverse
+  private readonly planeObjects: PlaneObjects;
 
   constructor(props: ITownPlaneProps) {
     super(props)
@@ -48,6 +50,13 @@ class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
       panning: false,
       ghostCursors: {}
     }
+
+    this.planeObjects = new PlaneObjects([
+      new PlaneObject<IShoutProps>(Shout, this.omniverse.myPeerUid, (state: IShoutProps) => state, {initialState: {
+          color: 'blue',
+          content: "HEY IDIOT"
+        }})
+    ])
 
     this.beginPan = this.beginPan.bind(this)
     this.endPan = this.endPan.bind(this)
@@ -76,22 +85,26 @@ class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
       <div className="fixed z-50 w-full pin-t">{this.props.renderControls({})}</div>
       <div style={{...this.getCanvasTransform()}}
            className={'canvas-root w-full h-full'}>
-        <Shout color={'red'} user={'me'} pending={false} position={{x: 100, y: 100}} content={"hey idiot"}/>
-        {map(this.state.ghostCursors, (cursor, id) => (
-          cursor &&
-          <div
-            key={`cursor-${id}`}
-            className="fixed w-8 h-8 pt-5 pl-4 text-grey text-sm"
-            style={{
-              transform: `translate(${cursor.x}px, ${cursor.y}px)`,
-              background: `url(/static/images/cursor.svg)`
-            }}>
-            {id}
-          </div>
-        ))}
+        {this.renderCursors()}
+        {this.renderPlaneObjects()}
         {this.props.children}
       </div>
     </div>
+  }
+
+  private renderCursors() {
+    return map(this.state.ghostCursors, (cursor, id) => (
+      cursor &&
+      <div
+        key={`cursor-${id}`}
+        className="fixed w-8 h-8 pt-5 pl-4 text-grey text-sm z-50"
+        style={{
+          transform: `translate(${cursor.x}px, ${cursor.y}px)`,
+          background: `url(/static/images/cursor.svg)`
+        }}>
+        {id}
+      </div>
+    ));
   }
 
   async componentDidMount() {
@@ -160,6 +173,7 @@ class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
     > TIPS:
     - Click and drag to move around, or scroll on your trackpad
     - Press 's' on your keyboard to shout
+    - Press the '~' key on your keyboard to show or hide this console
     `)
   }
 
@@ -222,6 +236,15 @@ class TownPlane extends Component<ITownPlaneProps, ITownPlaneState> {
 
   private triggerShout() {
 
+  }
+
+  private renderPlaneObjects() {
+    return <React.Fragment>
+      {this.planeObjects.objects.map(obj => {
+        let C = obj.component
+        return <C {...obj.state} position={obj.position} dispatch={obj.dispatch}/>
+      })}
+    </React.Fragment>
   }
 }
 
