@@ -35,7 +35,7 @@ export class LocalPeer implements IPeer {
   sendCast(method: string, payload: any): void {
   }
 
-  sendData(scope: string = '', payload: any = {}): void {
+  sendData(plane: string, scope: string, payload: any): boolean {
   }
 
   events(events: string[]): Promise<any> {

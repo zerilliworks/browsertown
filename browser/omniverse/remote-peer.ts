@@ -69,18 +69,20 @@ export class RemotePeer implements IPeer, Subscribable<any> {
     this.sendRPC(method, payload, false, 10000)
   }
 
-  sendData(scope: string = '', payload: any = {}): boolean {
+  sendData(plane: string, scope: string, payload: any): boolean {
     if (!this.connection || !this.connection.writable) {
       return false
     }
 
     try {
-      this.connection.send(JSON.stringify({
+      let rawPacket: IDataPacket = {
         _type: 'data',
         _version: 1,
+        _plane: '',
         _scope: scope,
         _payload: payload
-      } as IDataPacket))
+      }
+      this.connection.send(JSON.stringify(rawPacket))
       return true
     } catch (e) {
       console.error('Failed to send to peer', this, e)
@@ -101,14 +103,16 @@ export class RemotePeer implements IPeer, Subscribable<any> {
       const invocationId = uuid()
 
       try {
-        this.connection.send(JSON.stringify({
+        const rawPacket: IRPCRequestPacket = {
           _type: 'rpc_request',
           _version: 1,
+          _plane: '',
           _method: method,
           _args: args,
           _cast: responseRequired,
           _invocationId: invocationId
-        } as IRPCRequestPacket))
+        };
+        this.connection.send(JSON.stringify(rawPacket))
         return true
       } catch (e) {
         console.error('Failed to call procedure at peer', this, e)
@@ -235,7 +239,7 @@ export class RemotePeer implements IPeer, Subscribable<any> {
   private handleDataPacket(packet: IDataPacket) {
     let scope
     if ((scope = _.get(packet, '_scope', NO_SCOPE)) !== NO_SCOPE) {
-      let {_scope, _payload} = packet
+      let {_scope, _payload, _plane} = packet
       this.dataEvents.emit(scope, _payload, _scope)
     }
   }

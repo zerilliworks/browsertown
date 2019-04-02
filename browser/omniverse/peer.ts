@@ -70,7 +70,7 @@ export interface IPeer {
   shortUid: string
 
   // Send a JSON payload to this peer
-  sendData(scope: string, payload: any): void
+  sendData(plane: string, scope: string, payload: any): boolean
 
   // Send an RPC call to this peer (response required)
   sendCall(method: string, payload: any): Promise<PeerRPCResponse>
@@ -104,12 +104,14 @@ export type IPacket = IDataPacket | IRPCRequestPacket | IRPCResponsePacket
 export type IDataPacket = {
   _type: 'data'
   _version: number
-  _scope: 'string'
+  _plane: string
+  _scope: string
   _payload: any
 }
 export type IRPCRequestPacket = {
   _type: 'rpc_request'
   _version: number
+  _plane: string
   _method: string
   _args: any
   _cast: boolean
@@ -118,6 +120,7 @@ export type IRPCRequestPacket = {
 export type IRPCResponsePacket = {
   _type: 'rpc_response'
   _version: number
+  _plane: string
   _method: string
   _invocationId: string
   _returnValue: any
