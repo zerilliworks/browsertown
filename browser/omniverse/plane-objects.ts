@@ -1,6 +1,7 @@
 import * as React from "react";
 import {v4 as uuid} from 'uuid'
 import {PeerUUID} from "./peer";
+import {EventEmitter2} from "eventemitter2";
 
 /*
  * Notes on Reducers:
@@ -75,37 +76,38 @@ export class PlaneObject<T> implements IPlaneObject<T> {
   }
 }
 
-type PlaneObjectCursor = Record<string, IPlaneObject<any>> & {
+type IPlaneObjectCursor = Record<string, IPlaneObject<any>> & {
   map(iterator: (ob: IPlaneObject<any>, key: string) => any): any
 }
 
+export function PlaneObjectCursor(objects: Record<string, IPlaneObject<any>>): IPlaneObjectCursor {
+  let objectCursor = Object.create(objects)
+  objectCursor.map = (iterator: (ob: IPlaneObject<any>, key: string) => any) => {
+    return Object.keys(objects).map(key => iterator(objects[key], key))
+  }
+  return objectCursor
+}
+
 export default class PlaneObjects {
+  get events(): EventEmitter2 {
+    return this._events;
+  }
   private _objects: Record<string, IPlaneObject<any>>
+  private _events: EventEmitter2;
 
   constructor(initialObjects?: IPlaneObject<any>[]) {
     this._objects = {}
     if (initialObjects) {
       initialObjects.map(io => this._objects[io.id] = io)
     }
+    this._events = new EventEmitter2()
   }
 
-  get objects(): PlaneObjectCursor {
-    let objectCursor = Object.create(this._objects);
-    objectCursor.map = (iterator: (ob: IPlaneObject<any>, key: string) => any) => {
-      return Object.keys(this._objects).map(key => iterator(this._objects[key], key))
-    }
-    return objectCursor
+  get objects(): IPlaneObjectCursor {
+    return PlaneObjectCursor(this._objects)
   }
 
   add(po: IPlaneObject<any>) {
     this._objects[po.id] = po
   }
-
-  // remove(poOrId: IPlaneObject<any> | string) {
-  //   if ((<IPlaneObject<any>>poOrId).id) {
-  //     return delete this._objects[(<IPlaneObject<any>>poOrId).id]
-  //   } else {
-  //     return delete this._objects[<string>poOrId]
-  //   }
-  // }
 }

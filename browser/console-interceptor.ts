@@ -34,7 +34,7 @@ export default class ConsoleInterceptor implements Console {
     this.receivers = []
   }
 
-  private informReceivers(method: ConsoleMethod, ...args) {
+  private informReceivers(method: ConsoleMethod, ...args: any[]) {
     for (let rec of this.receivers) {
       rec[method].apply(rec, args)
     }
@@ -47,7 +47,7 @@ export default class ConsoleInterceptor implements Console {
   }
 
   // Overridden methods
-  assert(condition?: boolean, message?: string, ...data): void {
+  assert(condition?: boolean, message?: string, ...data: any[]): void {
     this.originalConsole.assert(condition, message, data);
     this.informReceivers(ConsoleMethod.assert, message, ...data)
   }
@@ -57,37 +57,37 @@ export default class ConsoleInterceptor implements Console {
     this.informReceivers(ConsoleMethod.clear)
   }
 
-  debug(message?: any, ...optionalParams): void {
+  debug(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.debug(message, optionalParams);
     this.informReceivers(ConsoleMethod.debug, message, ...optionalParams)
   }
 
-  error(message?: any, ...optionalParams): void {
+  error(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.error(message, optionalParams);
     this.informReceivers(ConsoleMethod.error, message, ...optionalParams)
   }
 
-  exception(message?: string, ...optionalParams): void {
+  exception(message?: string, ...optionalParams: any[]): void {
     this.originalConsole.exception(message, optionalParams);
     this.informReceivers(ConsoleMethod.exception, message, ...optionalParams)
   }
 
-  info(message?: any, ...optionalParams): void {
+  info(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.info(message, optionalParams);
     this.informReceivers(ConsoleMethod.info, message, ...optionalParams)
   }
 
-  log(message?: any, ...optionalParams): void {
+  log(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.log(message, optionalParams);
     this.informReceivers(ConsoleMethod.log, message, ...optionalParams)
   }
 
-  trace(message?: any, ...optionalParams): void {
+  trace(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.trace(message, optionalParams);
     this.informReceivers(ConsoleMethod.trace, message, ...optionalParams)
   }
 
-  warn(message?: any, ...optionalParams): void {
+  warn(message?: any, ...optionalParams: any[]): void {
     this.originalConsole.warn(message, optionalParams);
     this.informReceivers(ConsoleMethod.warn, message, ...optionalParams)
   }
