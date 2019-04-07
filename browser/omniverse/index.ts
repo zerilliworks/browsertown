@@ -4,15 +4,17 @@ import {v4 as uuid} from 'uuid'
 import PeerTracker from "./peer-tracker";
 import {EventEmitter2} from "eventemitter2";
 import {defaults} from 'lodash'
-import {IPeer, PeerUUID} from './peer'
+import {IPeer, PeerDataEvent, PeerUUID} from './peer'
 import PlaneObjects, {PlaneObject, PlaneObjectCursor} from '../omniverse/plane-objects'
 import {RemotePeer} from "./remote-peer";
+import {Observable, Subject} from "rxjs";
 
 class PlaneScope {
   private _omniverse: Omniverse;
   private _planeId: string;
-  objects: PlaneScopeObjects;
-  chat: PlaneScopeChat;
+  readonly objects: PlaneScopeObjects;
+  readonly chat: PlaneScopeChat;
+  readonly peers: PlaneScopePeers;
 
   get omniverse(): Omniverse {
     return this._omniverse;
@@ -26,10 +28,7 @@ class PlaneScope {
     this._omniverse = omniverse
     this.objects = new PlaneScopeObjects(this)
     this.chat = new PlaneScopeChat(this)
-  }
-
-  peers(): IPeer[] {
-    return this._omniverse.getPeersInPlane(this._planeId)
+    this.peers = new PlaneScopePeers(this)
   }
 
   neighbors(): Array<{plane: string | undefined, peer: string}> {
@@ -51,12 +50,36 @@ class PlaneScope {
   }
 }
 
-class PlaneScopeObjects {
-  private scope: PlaneScope;
+class BaseScope {
+  protected scope: PlaneScope;
   constructor(scope: PlaneScope) {
     this.scope = scope
   }
+}
 
+class PeerListIterator extends Observable<PeerDataEvent> {
+  private peers: IPeer[];
+  constructor(peerArray: IPeer[]) {
+    super()
+    this.peers = peerArray
+  }
+
+  [Symbol.iterator]() {
+
+  }
+}
+
+class PlaneScopePeers extends BaseScope {
+  all(): IPeer[] & Observable<PeerDataEvent> {
+    return new PeerListIterator(this.scope.omniverse.getPeersInPlane(this.scope.planeId))
+  }
+
+  select(peerId: string) {
+    return this.scope.omniverse.getPeerInPlane(this.scope.planeId, peerId)
+  }
+}
+
+class PlaneScopeObjects extends BaseScope {
   subscribe() {
 
   }
@@ -65,8 +88,7 @@ class PlaneScopeObjects {
     this.scope.omniverse.addObjectToPlane(this.scope.planeId, po)
   }
 
-  search() {
-
+  search(predicate: object) {
   }
 
   all() {
@@ -78,13 +100,7 @@ class PlaneScopeObjects {
   }
 }
 
-class PlaneScopeChat {
-  private scope: PlaneScope;
-
-  constructor(scope: PlaneScope) {
-    this.scope = scope
-  }
-
+class PlaneScopeChat extends BaseScope {
   create(message: string) {
 
   }
@@ -116,7 +132,7 @@ export default class Omniverse {
   private identities?: any[];
   private tracker?: PeerTracker;
   private events: EventEmitter2;
-  private selectedPlane: string | null
+  private selectedPlane: string
   private autoPeer: boolean
   private debug: boolean
   private readonly trackerUrl: string;
@@ -125,16 +141,18 @@ export default class Omniverse {
     autoPeer: true,
   }
   private _planeObjects: Record<string, PlaneObjects>;
+  private planePeerDataStreams: Record<string, Subject<any>>;
 
-  constructor(options: { trackerUrl: string; autoPeer: boolean; plane?: string; debug?: boolean}) {
+  constructor(options: { trackerUrl: string; autoPeer: boolean; plane: string; debug?: boolean}) {
     this.options = options
     let {trackerUrl, autoPeer, plane} = defaults(options, Omniverse.defaultOptions)
     this.autoPeer = autoPeer
     this.trackerUrl = trackerUrl
     this.events = new EventEmitter2({wildcard: true})
-    this.selectedPlane = plane || null
+    this.selectedPlane = plane
     this.debug = Boolean(options.debug)
     this._planeObjects = {}
+    this.planePeerDataStreams = {}
   }
 
   get url() { return this.trackerUrl }
@@ -217,15 +235,18 @@ export default class Omniverse {
       debug: this.debug
     })
 
+    // Setup plane data structures
+
     // Proxy connection events
-    this.tracker.on('peer_connected', peer => {
+    this.tracker.on('peer_connected', (peer: RemotePeer) => {
       this.events.emit('peer_connected', peer)
 
       // Bind the global data event to this peer
-      peer.onData('*', (data: any, scope: string) => {
-        // console.debug('Incoming peer broadcast', data, scope, peer.uid)
-        // console.debug('Re-emitted as', `peers.${peer.uid}.message.${scope}`)
-        this.events.emit(`peers.${peer.uid}.message.${scope}`, data, scope, peer)
+      peer.data.subscribe(e => {
+        this.events.emit(`peers.${peer.uid}.message.${e.payload._scope}`, e.payload._payload, e.payload._scope, peer)
+        if (this.planePeerDataStreams[e.payload._plane]) {
+          this.planePeerDataStreams[e.payload._plane].next(e)
+        }
       })
     })
     this.tracker.on('peer_join', peer => {
@@ -251,14 +272,8 @@ export default class Omniverse {
     // Reach out to tracker server
     await this.tracker.connect()
 
-    // Join the default plane if configured
-    if (this.selectedPlane) {
-      // Enter our initial plane
-      this.enterPlane(this.selectedPlane)
-
-      // Create a space for PlaneObjects
-      this._planeObjects[this.selectedPlane] = new PlaneObjects()
-    }
+    // Enter our initial plane
+    this.enterPlane(this.selectedPlane)
 
     // Automatically connect to new peers, if configured
     if (this.autoPeer) {
@@ -282,12 +297,6 @@ export default class Omniverse {
       // })
     }
 
-    // Set up event bindings to sync PlaneObject states
-    this.on('peers.*.message.object.new', (po: PlaneObject<any>, scope: string, fromPeer: RemotePeer) => {
-      // Insert new objects into PO table, bypassing event triggers
-      this._planeObjects.add(po)
-    })
-
     return true
   }
 
@@ -306,6 +315,10 @@ export default class Omniverse {
     if (!this._planeObjects[planeId]) {
       // Initialize a PlaneObjects instance if we don't already have one
       this._planeObjects[planeId] = new PlaneObjects()
+    }
+    if (!this.planePeerDataStreams[planeId]) {
+      // Create a new aggregate data stream for peers in this plane
+      this.planePeerDataStreams[planeId] = new Subject()
     }
     console.info(`Connected to plane ${planeId}`)
   }
@@ -368,6 +381,14 @@ export default class Omniverse {
     }
   }
 
+  bindObjectSyncEvents(planeId: string) {
+
+  }
+
+  getPlaneDataStream(planeId: string) {
+    return this.planePeerDataStreams[planeId] || null
+  }
+
   broadcastToPlane(planeId: string, scope: string, payload: any) {
     let res = this.getPeersInPlane(planeId).map(peer => {
       return peer.sendData(planeId, scope, payload)
@@ -378,5 +399,10 @@ export default class Omniverse {
   getPeersInPlane(planeId: string) {
     if (!this.peerTracker) { return [] }
     return this.peerTracker.getPeers({plane: planeId})
+  }
+
+  getPeerInPlane(planeId: string, peerId: string) {
+    if (!this.peerTracker) { return null }
+    return this.peerTracker.getPeer({plane: planeId, uid: peerId})
   }
 }

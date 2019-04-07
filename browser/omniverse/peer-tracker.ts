@@ -6,9 +6,10 @@ import invariant from 'invariant'
 import _, {omit, first} from 'lodash'
 import {EventEmitter2} from 'eventemitter2'
 import {map, flatMap} from 'lodash'
-import {Observable, Subscription, Subject} from 'rxjs'
-import {IPeer, PeerUUID} from './peer'
+import {Observable, Subscription, Subject, merge} from 'rxjs'
+import {IPeer, PeerDataEvent, PeerEvent, PeerUUID} from './peer'
 import {RemotePeer} from './remote-peer'
+import {filter} from "rxjs/operators";
 
 let Peer
 if (typeof window !== 'undefined') {
@@ -140,33 +141,6 @@ export default class PeerTracker {
 
     //   ==>  Bind update listeners  <==
 
-    /*// -->  Set up initial peer table from first plane update
-    this.socket.once('plane_update', (data: PlaneDataPayload) => {
-      // Filter out our own peer
-      this.planeMetadata[data.id] = {
-        ...data,
-        peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
-      }
-
-      for (let planePeer of this.planeMetadata[data.id].peers) {
-        this.peerTable.plane(data.id).insert(new RemotePeer(planePeer, {direct: false}))
-      }
-    })
-
-    // -->  Sync up our plane metadata when an update gets sent
-    this.socket.on('plane_update', (data: PlaneDataPayload) => {
-      console.debug('incoming plane_update', data)
-
-      // Filter our own peer ID out of the metadata
-      this.planeMetadata[data.id] = {
-        ...data,
-        peers: _.reject(data.peers, _.matches(this.localPeerInstance.uid))
-      }
-
-      this.events.emit('plane_update', this.planeMetadata)
-      this.events.emit('peer_update')
-    })*/
-
     // --> Reply to roll_call requests from the server
     this.socket.on('roll_call', ({newbie, plane}: {newbie: PeerUUID, plane: string}) => {
       console.log("Received roll call with data", {newbie, plane})
@@ -183,25 +157,6 @@ export default class PeerTracker {
       this.events.emit('peer_update')
     })
 
-
-    // // -->  Record new peers in the PeerTable when they announce themselves
-    // this.socket.on('peer_join', (peerData: {peer: PeerUUID, plane: string}) => {
-    //   console.debug('peer_join', peerData)
-    //
-    //   // Screen out messages that tell us our own peer ID joined,
-    //   // these are almost always erroneous
-    //   if (peerData.peer === this.localPeerInstance.uid) {
-    //     console.debug('(not inserting, reason: own_peer)')
-    //     return
-    //   }
-    //
-    //   // this.planeMetadata[peerData.plane].peers = _.uniq(this.planeMetadata[peerData.plane].peers.concat([peerData.peer]))
-    //
-    //   let peer = new RemotePeer(peerData.peer, {direct: false})
-    //   this.peerTable.plane(peerData.plane).insert(peer)
-    //   this.events.emit('peer_join', peer)
-    //   this.events.emit('peer_update')
-    // })
 
     // -->  Remove peers from the PeerTable when they leave
     this.socket.on('peer_leave', (peerData: {peer: PeerUUID, plane: string}) => {
@@ -433,7 +388,6 @@ export default class PeerTracker {
   off(event: string, listener: (...args: any[]) => void) {
     this.events.off(event, listener)
   }
-
 
 
   getPeers(filter: {plane?: string} = {}) {

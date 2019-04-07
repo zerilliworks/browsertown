@@ -7,15 +7,18 @@ import {
   IRPCRequestPacket,
   IRPCResponsePacket,
   NO_SCOPE,
+  PeerDataEvent,
+  PeerEvent,
   PeerRPCResponse,
   PeerUUID
 } from './peer'
-import {Subject, Subscribable} from 'rxjs'
+import {Observable, Subject, Subscribable} from 'rxjs'
 import {EventEmitter2} from 'eventemitter2'
 import {v4 as uuid} from 'uuid'
 import timeout from '../utility/timeout'
 import * as _ from 'lodash'
 import invariant from 'invariant'
+import {filter} from "rxjs/operators";
 
 export let Peer: SimplePeer.SimplePeer
 if (typeof window !== 'undefined') {
@@ -33,8 +36,9 @@ export class RemotePeer implements IPeer, Subscribable<any> {
   ready: boolean
   status: 'connected' | 'disconnected' | 'error' | 'connecting'
   uid: PeerUUID
-  private subject: Subject<any>
-  private observable: any
+  private subject: Subject<PeerEvent>
+  private observable: Observable<PeerEvent>
+  readonly data: Observable<PeerDataEvent> & { scope: (scope: string) => Observable<PeerDataEvent> };
 
   get shortUid() {
     return this.uid.split('-')[0]
@@ -56,9 +60,25 @@ export class RemotePeer implements IPeer, Subscribable<any> {
     this.subject = new Subject()
     this.observable = this.subject.asObservable()
 
-    // this.dataEvents.onAny((...args) => {
-    //   console.debug('Incoming data packet', args)
-    // })
+    // @ts-ignore
+    this.data = this.subject.pipe(
+      filter(e => e.event === 'data')
+    ) as Observable<PeerDataEvent>
+
+    // Convenience method to filter data events based on their scope. Implements a simple
+    // pattern matcher similar to wildcard events in EventEmitter2
+    this.data.scope = (queryScope: string) => {
+      return this.data.pipe(
+        filter(({payload: {_scope: packetScope}}) => {
+          // Match star-patterns
+          const packetSegments = packetScope.split('.')
+          const querySegments = queryScope.split('.')
+          return packetSegments.every((s, i) => {
+            return s === querySegments[i] || querySegments[i] === '*'
+          })
+        })
+      )
+    }
   }
 
   async sendCall(method: string, payload: any): Promise<PeerRPCResponse> {
@@ -241,6 +261,7 @@ export class RemotePeer implements IPeer, Subscribable<any> {
     if ((scope = _.get(packet, '_scope', NO_SCOPE)) !== NO_SCOPE) {
       let {_scope, _payload, _plane} = packet
       this.dataEvents.emit(scope, _payload, _scope)
+      this.subject.next({event: 'data', payload: packet, instance: this})
     }
   }
 

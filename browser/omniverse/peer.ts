@@ -22,6 +22,7 @@
  * IPeer instances are kept within the PeerTable.
  */
 import {ReactableEvent} from './reactable'
+import {Observable} from "rxjs";
 
 interface IPeerRPCSuccessResponse {
   error: false,
@@ -38,13 +39,6 @@ export interface IPeerRPCErrorResponse {
 
 export type PeerRPCResponse = IPeerRPCSuccessResponse | IPeerRPCErrorResponse
 export const NO_SCOPE = Symbol()
-export type PeerEvent = ReactableEvent<'connect', IPeer>
-  | ReactableEvent<'disconnect', IPeer>
-  | ReactableEvent<'signal', any, IPeer>
-  | ReactableEvent<'data', any, IPeer>
-  | ReactableEvent<'stream', any, IPeer>
-  | ReactableEvent<'track', any, IPeer>
-  | ReactableEvent<'close', any, IPeer>
 export type PeerUUID = string
 
 export interface IPeer {
@@ -68,6 +62,9 @@ export interface IPeer {
 
   // A shorter UUID to use in some cases
   shortUid: string
+
+  // Observable stream of data events
+  readonly data: Observable<PeerDataEvent> & { scope: (scope: string) => Observable<PeerDataEvent> };
 
   // Send a JSON payload to this peer
   sendData(plane: string, scope: string, payload: any): boolean
@@ -125,3 +122,6 @@ export type IRPCResponsePacket = {
   _invocationId: string
   _returnValue: any
 }
+export type PeerEvent = PeerDataEvent | PeerRPCEvent
+export type PeerDataEvent = ReactableEvent<'data', IDataPacket, IPeer>
+export type PeerRPCEvent = ReactableEvent<'rpc', IRPCResponsePacket, IPeer>
