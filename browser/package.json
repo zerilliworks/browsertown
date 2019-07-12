@@ -60,7 +60,7 @@
     "invariant": "^2.2.4",
     "javascript-state-machine": "^3.1.0",
     "localforage": "^1.7.2",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "lokijs": "^1.5.5",
     "mobx": "^5.9.4",
     "mobx-react": "^5.4.3",
