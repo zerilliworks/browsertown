@@ -31,7 +31,7 @@
     "express": "^4.16.4",
     "gun": "^0.2019.416",
     "peer": "^0.2.10",
-    "socket.io": "^2.1.1",
+    "socket.io": "^2.4.0",
     "lodash": "latest"
   }
 }
