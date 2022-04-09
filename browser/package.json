@@ -64,7 +64,7 @@
     "lokijs": "^1.5.5",
     "mobx": "^5.9.4",
     "mobx-react": "^5.4.3",
-    "moment": "^2.22.2",
+    "moment": "^2.29.2",
     "mousetrap": "^1.6.2",
     "next": "^7.0.2",
     "node-webcrypto-ossl": "^1.0.38",
