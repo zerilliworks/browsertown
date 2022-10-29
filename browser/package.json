@@ -75,7 +75,7 @@
     "react-no-ssr": "^1.1.0",
     "rxjs": "^6.3.3",
     "simple-peer": "^9.1.2",
-    "socket.io-client": "^2.1.1",
+    "socket.io-client": "^2.5.0",
     "text-encoding": "^0.7.0",
     "uuid": "^3.3.2"
   }
